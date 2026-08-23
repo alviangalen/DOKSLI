@@ -4,7 +4,7 @@
 
 ---
 
-## ⚙️ Persyaratan Sistem (Prerequisites)
+## Persyaratan Sistem (Prerequisites)
 
 - **PHP** >= 8.2 dengan ekstensi: `pdo_pgsql`, `pgsql`, `xml`, `fileinfo`, `mbstring`, `curl`
 - **Composer** (Package Manager PHP)
@@ -38,14 +38,14 @@ sudo chmod -R 775 /mnt/storage
 2. Konfigurasi file `.env` (pastikan kredensial PostgreSQL sesuai):
    ```env
    DB_CONNECTION=pgsql
-   DB_HOST=127.0.0.1
-   DB_PORT=5432
-   DB_DATABASE=doksli
-   DB_USERNAME=doksli_user
-   DB_PASSWORD=doksli_password
+   DB_HOST=nama_host_sesuaikan
+   DB_PORT=nomor_port_sesuaikan
+   DB_DATABASE=nama_database_sesuaikan
+   DB_USERNAME=nama_username_sesuaikan
+   DB_PASSWORD=password_sesuaikan
 
-   FILESYSTEM_DISK=mnt_storage
-   DOKSLI_STORAGE_PATH=/mnt/storage
+   FILESYSTEM_DISK=nama_folder_storage_sesuaikan
+   DOKSLI_STORAGE_PATH=/path/to/storage_sesuaikan
    ```
 
 3. Jalankan migrasi database:
