@@ -1,0 +1,10 @@
+{
+  "description": "Upload and share original meme documents anonymously with easy folder creation and commenting in a simple, user-friendly platform.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

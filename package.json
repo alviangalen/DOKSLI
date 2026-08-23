@@ -1,0 +1,11 @@
+﻿{
+  "name": "doksli-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "backend": "cd backend && php artisan serve --host=0.0.0.0 --port=8000",
+    "frontend": "npm --prefix frontend run dev"
+  }
+}
