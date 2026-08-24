@@ -145,7 +145,7 @@ Buka terminal baru:
 
 ---
 
-## 📡 Daftar Endpoint REST API
+## Daftar Endpoint REST API
 
 | Method | Endpoint | Deskripsi |
 |---|---|---|
@@ -158,7 +158,7 @@ Buka terminal baru:
 
 ---
 
-## ⚙️ Catatan Konfigurasi Upload File Besar (PHP)
+## Catatan Konfigurasi Upload File Besar (PHP)
 
 Jika mengunggah file berukuran di atas 2 MB (hingga 100 MB), pastikan konfigurasi PHP (`php.ini` atau Docker environment) mengizinkan ukuran tersebut:
 

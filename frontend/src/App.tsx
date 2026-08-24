@@ -1,39 +1,47 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
+  Doksli,
+  FileEntry,
+  Comment,
   fetchDokslis,
   fetchDoksli,
   createDoksli,
   incrementDoksliView,
   addDoksliComment,
   getFileViewUrl,
-  Doksli,
-  FileEntry,
-  Comment
 } from "./api/doksliApi";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatDate(dateStr: string) {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
-}
-
-function formatSize(bytes: number) {
-  if (!bytes) return "0 B";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  try {
+    const d = new Date(dateStr);
+    return new Intl.DateTimeFormat("id-ID", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }).format(d);
+  } catch {
+    return dateStr;
+  }
 }
 
 function timeAgo(dateStr: string) {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  const diff = (Date.now() - d.getTime()) / 1000;
-  if (diff < 60) return "baru saja";
-  if (diff < 3600) return `${Math.floor(diff / 60)} menit lalu`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} jam lalu`;
-  return `${Math.floor(diff / 86400)} hari lalu`;
+  try {
+    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    if (diff < 60) return "baru saja";
+    if (diff < 3600) return `${Math.floor(diff / 60)} mnt lalu`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} jam lalu`;
+    return `${Math.floor(diff / 86400)} hari lalu`;
+  } catch {
+    return dateStr;
+  }
+}
+
+function formatSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function fileIcon(type: string) {
@@ -61,25 +69,57 @@ type Page = "home" | "create" | "detail";
 
 // ─── Component: Header ────────────────────────────────────────────────────────
 
-function Header({ onHome, onCreate }: { onHome: () => void; onCreate: () => void }) {
+function Header({
+  onHome,
+  onCreate,
+  darkMode,
+  onToggleTheme,
+}: {
+  onHome: () => void;
+  onCreate: () => void;
+  darkMode: boolean;
+  onToggleTheme: () => void;
+}) {
   return (
-    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-blue-100 shadow-xs">
+    <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-blue-100 dark:border-slate-800 shadow-xs transition-colors duration-200">
       <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
         <button
           onClick={onHome}
-          className="flex items-center gap-2 font-bold text-lg text-blue-600 hover:text-blue-700 transition-colors cursor-pointer"
+          className="flex items-center gap-2 font-bold text-lg text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors cursor-pointer"
         >
-          <span className="text-xl"></span>
           <span style={{ fontFamily: "'DM Sans', sans-serif" }}>DOKSLI</span>
         </button>
 
-        <button
-          onClick={onCreate}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-500 hover:bg-blue-600 text-white font-medium text-xs rounded-lg transition-colors shadow-xs cursor-pointer"
-        >
-          <span>+</span>
-          <span>Buat Doksli</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          {/* Dark / Light Mode Switch Button */}
+          <button
+            onClick={onToggleTheme}
+            type="button"
+            className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer"
+            aria-label={darkMode ? "Beralih ke mode terang" : "Beralih ke mode gelap"}
+            title={darkMode ? "Mode Terang" : "Mode Gelap"}
+          >
+            {darkMode ? (
+              // Sun icon (for dark mode -> switch to light)
+              <svg className="w-4.5 h-4.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            ) : (
+              // Moon icon (for light mode -> switch to dark)
+              <svg className="w-4.5 h-4.5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            )}
+          </button>
+
+          <button
+            onClick={onCreate}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 text-white font-medium text-xs rounded-lg transition-colors shadow-xs cursor-pointer"
+          >
+            <span>+</span>
+            <span>Buat Doksli</span>
+          </button>
+        </div>
       </div>
     </header>
   );
@@ -115,12 +155,12 @@ function HomePage({
       {/* Hero */}
       <div className="text-center mb-8">
         <h1
-          className="text-2xl sm:text-3xl font-extrabold text-slate-800 mb-2"
+          className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-slate-100 mb-2 transition-colors"
           style={{ fontFamily: "'DM Sans', sans-serif" }}
         >
-          Berbagi Dokumen Asli 
+          Berbagi Dokumen Asli
         </h1>
-        <p className="text-slate-500 text-sm max-w-md mx-auto">
+        <p className="text-slate-500 dark:text-slate-400 text-sm max-w-md mx-auto transition-colors">
           Upload file original secara anonim. Tanpa akun, tanpa batas waktu.
         </p>
       </div>
@@ -133,22 +173,25 @@ function HomePage({
             placeholder="Cari doksli..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-white border border-blue-200 rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 transition"
+            className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-blue-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-500 focus:border-blue-400 dark:focus:border-blue-500 transition"
           />
-          <span className="absolute left-3 top-2.5 text-slate-400 text-sm"></span>
+          <span className="absolute left-3 top-2.5 text-slate-400 text-sm">
+            <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </span>
         </div>
       </div>
 
       {loading ? (
-        <div className="text-center py-12 bg-white/50 border border-blue-100 rounded-2xl p-8">
+        <div className="text-center py-12 bg-white/50 dark:bg-slate-900/50 border border-blue-100 dark:border-slate-800 rounded-2xl p-8 transition-colors">
           <div className="inline-block animate-spin text-3xl mb-2">🔄</div>
-          <p className="text-sm font-medium text-slate-600">Menghubungkan ke server backend...</p>
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Menghubungkan ke server backend...</p>
         </div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center text-red-600 shadow-xs">
-          <div className="text-3xl mb-2"></div>
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-2xl p-6 text-center text-red-600 dark:text-red-400 shadow-xs transition-colors">
           <p className="text-sm font-semibold mb-1">{error}</p>
-          <p className="text-xs text-red-500 mb-4">
+          <p className="text-xs text-red-500 dark:text-red-400/80 mb-4">
             Pastikan backend berjalan dengan baik
           </p>
           <button
@@ -159,13 +202,12 @@ function HomePage({
           </button>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white border border-blue-100 rounded-2xl p-12 text-center text-slate-400 shadow-xs">
-          <div className="text-4xl mb-3"></div>
-          <p className="text-base font-medium text-slate-600 mb-1">Belum ada Doksli</p>
-          <p className="text-xs text-slate-400 mb-4">Mulai buat doksli baru dan bagikan file original kamu.</p>
+        <div className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-2xl p-12 text-center text-slate-400 dark:text-slate-500 shadow-xs transition-colors">
+          <p className="text-base font-medium text-slate-600 dark:text-slate-300 mb-1">Belum ada Doksli</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">Mulai buat doksli baru dan bagikan file original kamu.</p>
           <button
             onClick={onCreate}
-            className="px-4 py-2 bg-blue-500 text-white text-xs font-medium rounded-xl hover:bg-blue-600 transition-colors cursor-pointer"
+            className="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white text-xs font-medium rounded-xl hover:bg-blue-600 dark:hover:bg-blue-500 transition-colors cursor-pointer"
           >
             Buat Doksli Pertama
           </button>
@@ -176,33 +218,33 @@ function HomePage({
             <div
               key={d.id}
               onClick={() => onOpen(d.id)}
-              className="group cursor-pointer bg-white border border-blue-100 hover:border-blue-300 rounded-2xl p-5 hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+              className="group cursor-pointer bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-500/50 rounded-2xl p-5 hover:shadow-md dark:hover:shadow-slate-900/50 transition-all duration-200 flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <h3
-                    className="font-semibold text-slate-800 text-base group-hover:text-blue-600 transition-colors line-clamp-2"
+                    className="font-semibold text-slate-800 dark:text-slate-100 text-base group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2"
                     style={{ fontFamily: "'DM Sans', sans-serif" }}
                   >
                     {d.name}
                   </h3>
-                  <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 font-medium rounded-full flex-shrink-0">
+                  <span className="text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-950/60 border border-transparent dark:border-blue-900/50 text-blue-600 dark:text-blue-400 font-medium rounded-full flex-shrink-0">
                     {d.files_count ?? d.files?.length ?? 0} file
                   </span>
                 </div>
 
                 {d.description && (
-                  <p className="text-xs text-slate-500 line-clamp-2 mb-4 leading-relaxed">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-4 leading-relaxed">
                     {d.description}
                   </p>
                 )}
               </div>
 
-              <div className="pt-3 border-t border-slate-50 flex items-center justify-between text-xs text-slate-400">
+              <div className="pt-3 border-t border-slate-50 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
                 <span>{formatDate(d.created_at)}</span>
                 <div className="flex items-center gap-3">
-                  <span> {d.view_count}</span>
-                  <span> {d.comments_count ?? d.comments?.length ?? 0}</span>
+                  <span>dilihat: {d.view_count}</span>
+                  <span>komentar: {d.comments_count ?? d.comments?.length ?? 0}</span>
                 </div>
               </div>
             </div>
@@ -259,28 +301,28 @@ function CreatePage({
     <main className="max-w-2xl mx-auto px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1
-          className="text-xl font-bold text-slate-800"
+          className="text-xl font-bold text-slate-800 dark:text-slate-100 transition-colors"
           style={{ fontFamily: "'DM Sans', sans-serif" }}
         >
           Buat Doksli Baru
         </h1>
         <button
           onClick={onCancel}
-          className="text-xs text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+          className="text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors cursor-pointer"
         >
           Batal
         </button>
       </div>
 
       {errorMsg && (
-        <div className="mb-4 bg-red-50 border border-red-200 text-red-600 rounded-xl p-3 text-xs">
+        <div className="mb-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 rounded-xl p-3 text-xs">
           {errorMsg}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white border border-blue-100 rounded-2xl p-6 shadow-xs space-y-5">
+      <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-5 transition-colors">
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
             Nama Doksli <span className="text-blue-500">*</span>
           </label>
           <input
@@ -289,12 +331,12 @@ function CreatePage({
             placeholder="contoh: Foto Asli Meme Cat Vibing"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3.5 py-2 border border-blue-200 rounded-xl text-sm bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 transition"
+            className="w-full px-3.5 py-2 border border-blue-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-500 focus:border-blue-400 dark:focus:border-blue-500 transition"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
             Deskripsi (opsional)
           </label>
           <textarea
@@ -302,12 +344,12 @@ function CreatePage({
             placeholder="Jelaskan asal usul atau detail file yang kamu upload..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3.5 py-2 border border-blue-200 rounded-xl text-sm bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 transition resize-none"
+            className="w-full px-3.5 py-2 border border-blue-200 dark:border-slate-700 rounded-xl text-sm bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-500 focus:border-blue-400 dark:focus:border-blue-500 transition resize-none"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
             Upload File (/mnt/storage)
           </label>
 
@@ -321,12 +363,12 @@ function CreatePage({
 
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-blue-200 hover:border-blue-400 bg-blue-50/50 hover:bg-blue-50 rounded-xl p-6 text-center cursor-pointer transition-colors"
+            className="border-2 border-dashed border-blue-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 bg-blue-50/50 dark:bg-slate-950/50 hover:bg-blue-50 dark:hover:bg-slate-950/80 rounded-xl p-6 text-center cursor-pointer transition-colors"
           >
             <div className="text-2xl mb-1">📁</div>
-            <p className="text-xs font-medium text-blue-600">Klik untuk memilih file</p>
-            <p className="text-[11px] text-slate-400 mt-1">
-              Gambar, Video, Audio, PDF, Dokumen, Zip (Maks 50MB)
+            <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Klik untuk memilih file</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+              Gambar, Video, Audio, PDF, Dokumen, Zip (Maks 100MB)
             </p>
           </div>
 
@@ -335,12 +377,12 @@ function CreatePage({
               {selectedFiles.map((file, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between bg-blue-50/60 border border-blue-100 rounded-lg px-3 py-2 text-xs"
+                  className="flex items-center justify-between bg-blue-50/60 dark:bg-slate-800/80 border border-blue-100 dark:border-slate-700 rounded-lg px-3 py-2 text-xs"
                 >
                   <div className="flex items-center gap-2 truncate">
                     <span>{fileIcon(file.type)}</span>
-                    <span className="font-medium text-slate-700 truncate">{file.name}</span>
-                    <span className="text-slate-400">({formatSize(file.size)})</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-200 truncate">{file.name}</span>
+                    <span className="text-slate-400 dark:text-slate-500">({formatSize(file.size)})</span>
                   </div>
                   <button
                     type="button"
@@ -359,18 +401,18 @@ function CreatePage({
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 border border-slate-200 text-slate-600 text-xs font-medium rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+            className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             Batal
           </button>
           <button
             type="submit"
             disabled={submitting || !name.trim()}
-            className="px-5 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-200 disabled:cursor-not-allowed text-white text-xs font-medium rounded-xl transition-colors shadow-xs flex items-center gap-2 cursor-pointer"
+            className="px-5 py-2 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 disabled:bg-blue-200 dark:disabled:bg-slate-700 disabled:cursor-not-allowed text-white text-xs font-medium rounded-xl transition-colors shadow-xs flex items-center gap-2 cursor-pointer"
           >
             {submitting ? (
               <>
-                <span className="animate-spin">⏳</span>
+                <span className="animate-spin"></span>
                 <span>Mengupload...</span>
               </>
             ) : (
@@ -416,31 +458,31 @@ function DetailPage({
       {/* Back */}
       <button
         onClick={onBack}
-        className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 transition-colors mb-6 cursor-pointer"
+        className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors mb-6 cursor-pointer"
       >
         <span>←</span>
         <span>Kembali ke Beranda</span>
       </button>
 
       {/* Header Info */}
-      <div className="bg-white border border-blue-100 rounded-2xl p-6 shadow-xs mb-6">
+      <div className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-2xl p-6 shadow-xs mb-6 transition-colors">
         <h1
-          className="text-xl sm:text-2xl font-bold text-slate-800 mb-2"
+          className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2 transition-colors"
           style={{ fontFamily: "'DM Sans', sans-serif" }}
         >
           {doksli.name}
         </h1>
 
         {doksli.description && (
-          <p className="text-sm text-slate-600 leading-relaxed mb-4">
+          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-4">
             {doksli.description}
           </p>
         )}
 
-        <div className="flex items-center gap-4 text-xs text-slate-400 pt-3 border-t border-slate-100">
+        <div className="flex items-center gap-4 text-xs text-slate-400 dark:text-slate-500 pt-3 border-t border-slate-100 dark:border-slate-800">
           <span>Diupload {formatDate(doksli.created_at)}</span>
           <span>·</span>
-          <span>👁️ {doksli.view_count} dilihat</span>
+          <span> {doksli.view_count} dilihat</span>
           <span>·</span>
           <span>{doksli.files?.length ?? 0} file</span>
         </div>
@@ -448,12 +490,12 @@ function DetailPage({
 
       {/* Files */}
       <section className="mb-8">
-        <h2 className="text-sm font-semibold text-slate-700 mb-3" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3" style={{ fontFamily: "'DM Sans', sans-serif" }}>
           File ({doksli.files?.length ?? 0})
         </h2>
 
         {(!doksli.files || doksli.files.length === 0) ? (
-          <div className="bg-white border border-blue-100 rounded-xl p-8 text-center text-slate-400">
+          <div className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-xl p-8 text-center text-slate-400 dark:text-slate-500 transition-colors">
             <div className="text-3xl mb-2">📭</div>
             <p className="text-sm">Belum ada file di doksli ini.</p>
           </div>
@@ -467,29 +509,29 @@ function DetailPage({
                     ? setPreviewFile(f)
                     : window.open(getFileViewUrl(f.id), "_blank")
                 }
-                className="text-left flex items-center gap-3 bg-white border border-blue-100 rounded-xl p-3 hover:border-blue-300 hover:shadow-sm transition-all group cursor-pointer"
+                className="text-left flex items-center gap-3 bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-xl p-3 hover:border-blue-300 dark:hover:border-blue-500/50 hover:shadow-sm transition-all group cursor-pointer"
               >
                 {f.mime_type.startsWith("image/") ? (
                   <img
                     src={getFileViewUrl(f.id)}
                     alt={f.original_name}
-                    className="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-blue-50"
+                    className="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-blue-50 dark:bg-slate-800"
                   />
                 ) : (
-                  <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center text-2xl flex-shrink-0">
+                  <div className="w-12 h-12 rounded-lg bg-blue-50 dark:bg-slate-800 flex items-center justify-center text-2xl flex-shrink-0">
                     {fileIcon(f.mime_type)}
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 truncate group-hover:text-blue-600 transition-colors">
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                     {f.original_name}
                   </p>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                     {fileCategoryLabel(f.mime_type)} · {formatSize(f.file_size)}
                   </p>
                 </div>
                 <svg
-                  className="flex-shrink-0 text-blue-200 group-hover:text-blue-400 transition-colors"
+                  className="flex-shrink-0 text-blue-200 dark:text-slate-600 group-hover:text-blue-400 dark:group-hover:text-blue-300 transition-colors"
                   width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                 >
@@ -506,7 +548,7 @@ function DetailPage({
       {/* Image preview modal */}
       {previewFile && (
         <div
-          className="fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4"
           onClick={() => setPreviewFile(null)}
         >
           <div className="relative max-w-3xl max-h-[85vh] w-full" onClick={(e) => e.stopPropagation()}>
@@ -517,13 +559,13 @@ function DetailPage({
             />
             <button
               onClick={() => setPreviewFile(null)}
-              className="absolute top-3 right-3 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center text-slate-600 hover:bg-white transition-colors cursor-pointer"
+              className="absolute top-3 right-3 w-8 h-8 bg-slate-900/80 dark:bg-slate-800/90 text-white rounded-full flex items-center justify-center hover:bg-slate-900 transition-colors cursor-pointer"
               aria-label="Tutup"
             >
               ✕
             </button>
-            <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5">
-              <p className="text-xs font-medium text-slate-700">{previewFile.original_name}</p>
+            <div className="absolute bottom-3 left-3 bg-slate-900/90 dark:bg-slate-900/95 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-slate-700/50">
+              <p className="text-xs font-medium text-slate-100">{previewFile.original_name}</p>
               <p className="text-xs text-slate-400">{formatSize(previewFile.file_size)}</p>
             </div>
           </div>
@@ -532,7 +574,7 @@ function DetailPage({
 
       {/* Comments */}
       <section>
-        <h2 className="text-sm font-semibold text-slate-700 mb-3" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3" style={{ fontFamily: "'DM Sans', sans-serif" }}>
           Komentar ({doksli.comments?.length ?? 0})
         </h2>
 
@@ -543,12 +585,12 @@ function DetailPage({
             placeholder="Tulis komentar (anonim)..."
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            className="flex-1 px-3 py-2 border border-blue-200 rounded-lg text-sm bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 transition"
+            className="flex-1 px-3 py-2 border border-blue-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-500 focus:border-blue-400 dark:focus:border-blue-500 transition"
           />
           <button
             type="submit"
             disabled={submittingComment || !comment.trim()}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-200 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors cursor-pointer"
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 disabled:bg-blue-200 dark:disabled:bg-slate-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors cursor-pointer"
           >
             Kirim
           </button>
@@ -556,18 +598,18 @@ function DetailPage({
 
         {/* Comment list */}
         {(!doksli.comments || doksli.comments.length === 0) ? (
-          <div className="text-center py-8 text-slate-400 border border-dashed border-blue-100 rounded-xl">
+          <div className="text-center py-8 text-slate-400 dark:text-slate-500 border border-dashed border-blue-100 dark:border-slate-800 rounded-xl transition-colors">
             <p className="text-sm">Belum ada komentar. Jadilah yang pertama!</p>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
             {doksli.comments.map((c) => (
-              <div key={c.id} className="bg-white border border-blue-100 rounded-xl px-4 py-3">
+              <div key={c.id} className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-xl px-4 py-3 transition-colors">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-blue-500">Anonim</span>
-                  <span className="text-xs text-slate-400">{timeAgo(c.posted_at)}</span>
+                  <span className="text-xs font-medium text-blue-500 dark:text-blue-400">Anonim</span>
+                  <span className="text-xs text-slate-400 dark:text-slate-500">{timeAgo(c.posted_at)}</span>
                 </div>
-                <p className="text-sm text-slate-700 leading-relaxed">{c.comment_text}</p>
+                <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">{c.comment_text}</p>
               </div>
             ))}
           </div>
@@ -585,6 +627,31 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [activeDoksli, setActiveDoksli] = useState<Doksli | null>(null);
+
+  // Dark Mode state with persistence in localStorage and system fallback
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("doksli-theme");
+      if (saved) return saved === "dark";
+      return window.matchMedia("(prefers-color-scheme: dark)").matches;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (darkMode) {
+      root.classList.add("dark");
+      localStorage.setItem("doksli-theme", "dark");
+    } else {
+      root.classList.remove("dark");
+      localStorage.setItem("doksli-theme", "light");
+    }
+  }, [darkMode]);
+
+  const toggleTheme = () => {
+    setDarkMode((prev) => !prev);
+  };
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -632,13 +699,15 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-full" style={{ backgroundColor: "#f0f7ff" }}>
+    <div className="min-h-screen bg-[#f0f7ff] dark:bg-[#0b0f17] text-slate-800 dark:text-slate-100 transition-colors duration-200">
       <Header
         onHome={() => {
           loadData();
           setPage("home");
         }}
         onCreate={() => setPage("create")}
+        darkMode={darkMode}
+        onToggleTheme={toggleTheme}
       />
 
       {page === "home" && (
