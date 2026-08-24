@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import logoDoksli from "./img/logo/logo-doksli.png";
 import {
   Doksli,
   FileEntry,
@@ -65,6 +66,13 @@ function fileCategoryLabel(type: string) {
   return "Dokumen";
 }
 
+function getShareUrl(doksliId: string) {
+  if (typeof window === "undefined") return "";
+  const url = new URL(window.location.href);
+  url.searchParams.set("doksli", doksliId);
+  return url.toString();
+}
+
 type Page = "home" | "create" | "detail";
 
 // ─── Component: Header ────────────────────────────────────────────────────────
@@ -87,6 +95,7 @@ function Header({
           onClick={onHome}
           className="flex items-center gap-2 font-bold text-lg text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors cursor-pointer"
         >
+          <img src={logoDoksli} alt="DOKSLI" width="35" height="35" className="rounded-lg object-contain" />
           <span style={{ fontFamily: "'DM Sans', sans-serif" }}>DOKSLI</span>
         </button>
 
@@ -134,6 +143,7 @@ function HomePage({
   onOpen,
   onCreate,
   onRetry,
+  onShareDoksli,
 }: {
   doksliList: Doksli[];
   loading: boolean;
@@ -141,14 +151,25 @@ function HomePage({
   onOpen: (id: string) => void;
   onCreate: () => void;
   onRetry: () => void;
+  onShareDoksli: (doksli: Doksli, e: React.MouseEvent) => void;
 }) {
   const [search, setSearch] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const filtered = doksliList.filter(
     (d) =>
       d.name.toLowerCase().includes(search.toLowerCase()) ||
       (d.description && d.description.toLowerCase().includes(search.toLowerCase()))
   );
+
+  const handleShareClick = (d: Doksli, e: React.MouseEvent) => {
+    e.stopPropagation();
+    onShareDoksli(d, e);
+    setCopiedId(d.id);
+    setTimeout(() => {
+      setCopiedId(null);
+    }, 2000);
+  };
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-8">
@@ -161,7 +182,7 @@ function HomePage({
           Berbagi Dokumen Asli
         </h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm max-w-md mx-auto transition-colors">
-          Upload file original secara anonim. Tanpa akun, tanpa batas waktu.
+          Upload file original secara anonim. Tanpa akun, tanpa batas waktu, dan bisa dibagikan via link ke siapapun.
         </p>
       </div>
 
@@ -228,9 +249,32 @@ function HomePage({
                   >
                     {d.name}
                   </h3>
-                  <span className="text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-950/60 border border-transparent dark:border-blue-900/50 text-blue-600 dark:text-blue-400 font-medium rounded-full flex-shrink-0">
-                    {d.files_count ?? d.files?.length ?? 0} file
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <span className="text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-950/60 border border-transparent dark:border-blue-900/50 text-blue-600 dark:text-blue-400 font-medium rounded-full">
+                      {d.files_count ?? d.files?.length ?? 0} file
+                    </span>
+
+                    {/* Quick share button on card */}
+                    <button
+                      onClick={(e) => handleShareClick(d, e)}
+                      type="button"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      title="Bagikan link doksli ini"
+                      aria-label="Bagikan link doksli"
+                    >
+                      {copiedId === d.id ? (
+                        <span className="text-xs text-emerald-500 font-bold flex items-center gap-0.5">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span>
+                      ) : (
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {d.description && (
@@ -431,14 +475,23 @@ function DetailPage({
   doksli,
   onBack,
   onAddComment,
+  onShareDoksli,
 }: {
   doksli: Doksli;
   onBack: () => void;
   onAddComment: (doksliId: string, text: string) => Promise<void>;
+  onShareDoksli: (doksli: Doksli, e: React.MouseEvent) => void;
 }) {
   const [comment, setComment] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
   const [previewFile, setPreviewFile] = useState<FileEntry | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = (e: React.MouseEvent) => {
+    onShareDoksli(doksli, e);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
 
   const handleComment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -455,34 +508,75 @@ function DetailPage({
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-8">
-      {/* Back */}
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors mb-6 cursor-pointer"
-      >
-        <span>←</span>
-        <span>Kembali ke Beranda</span>
-      </button>
+      {/* Back & Share Bar */}
+      <div className="flex items-center justify-between mb-6">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+        >
+          <span>←</span>
+          <span>Kembali ke Beranda</span>
+        </button>
+
+        {/* Share Button in Top Bar */}
+        <button
+          onClick={handleShare}
+          type="button"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-all shadow-2xs cursor-pointer"
+        >
+          {copied ? (
+            <>
+              <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Link Tersalin!</span>
+            </>
+          ) : (
+            <>
+              <svg className="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              <span>Bagikan Link</span>
+            </>
+          )}
+        </button>
+      </div>
 
       {/* Header Info */}
       <div className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-2xl p-6 shadow-xs mb-6 transition-colors">
-        <h1
-          className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2 transition-colors"
-          style={{ fontFamily: "'DM Sans', sans-serif" }}
-        >
-          {doksli.name}
-        </h1>
+        <div className="flex items-start justify-between gap-4 mb-2">
+          <h1
+            className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 transition-colors"
+            style={{ fontFamily: "'DM Sans', sans-serif" }}
+          >
+            {doksli.name}
+          </h1>
+
+          <button
+            onClick={handleShare}
+            className="flex-shrink-0 p-2 rounded-xl bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-slate-700 transition-all cursor-pointer"
+            title="Salin tautan Doksli"
+          >
+            {copied ? (
+              <span className="text-xs text-emerald-500 font-semibold px-1">Tersalin!</span>
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+            )}
+          </button>
+        </div>
 
         {doksli.description && (
-          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-4">
+          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-4 whitespace-pre-wrap">
             {doksli.description}
           </p>
         )}
 
-        <div className="flex items-center gap-4 text-xs text-slate-400 dark:text-slate-500 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 dark:text-slate-500 pt-3 border-t border-slate-100 dark:border-slate-800">
           <span>Diupload {formatDate(doksli.created_at)}</span>
           <span>·</span>
-          <span> {doksli.view_count} dilihat</span>
+          <span>👁️ {doksli.view_count} dilihat</span>
           <span>·</span>
           <span>{doksli.files?.length ?? 0} file</span>
         </div>
@@ -619,6 +713,22 @@ function DetailPage({
   );
 }
 
+// ─── Toast Notification Component ─────────────────────────────────────────────
+
+function Toast({ message, onClose }: { message: string; onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900/95 dark:bg-slate-800/95 text-white text-xs font-medium px-4 py-3 rounded-2xl shadow-xl border border-slate-700/60 backdrop-blur-md animate-fade-in">
+      <span className="text-emerald-400 text-sm">✓</span>
+      <span>{message}</span>
+    </div>
+  );
+}
+
 // ─── App Main ─────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -627,6 +737,7 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [activeDoksli, setActiveDoksli] = useState<Doksli | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Dark Mode state with persistence in localStorage and system fallback
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -666,12 +777,13 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const handleOpen = async (id: string) => {
+  const handleOpen = useCallback(async (id: string, updateUrl: boolean = true) => {
     try {
+      if (updateUrl && typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.set("doksli", id);
+        window.history.pushState({ doksliId: id }, "", url.toString());
+      }
       const detail = await fetchDoksli(id);
       setActiveDoksli(detail);
       setPage("detail");
@@ -681,14 +793,67 @@ export default function App() {
       }
     } catch (err) {
       alert("Gagal memuat detail Doksli.");
+      setPage("home");
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("doksli");
+        window.history.pushState({}, "", url.pathname);
+      }
     }
+  }, []);
+
+  // Handle direct URL sharing on load (e.g. ?doksli=UUID or ?id=UUID)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const sharedId = params.get("doksli") || params.get("id");
+      if (sharedId) {
+        handleOpen(sharedId, false);
+      } else {
+        loadData();
+      }
+
+      // Listen to popstate (browser back/forward buttons)
+      const handlePopState = () => {
+        const currentParams = new URLSearchParams(window.location.search);
+        const currentId = currentParams.get("doksli") || currentParams.get("id");
+        if (currentId) {
+          handleOpen(currentId, false);
+        } else {
+          setActiveDoksli(null);
+          setPage("home");
+          loadData();
+        }
+      };
+
+      window.addEventListener("popstate", handlePopState);
+      return () => window.removeEventListener("popstate", handlePopState);
+    }
+  }, [handleOpen, loadData]);
+
+  const handleGoHome = () => {
+    setActiveDoksli(null);
+    setPage("home");
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("doksli");
+      url.searchParams.delete("id");
+      window.history.pushState({}, "", url.pathname || "/");
+    }
+    loadData();
   };
 
   const handleCreate = async (name: string, description: string, files: File[]) => {
     const newDoksli = await createDoksli(name, description, files);
     setActiveDoksli(newDoksli);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("doksli", newDoksli.id);
+      window.history.pushState({ doksliId: newDoksli.id }, "", url.toString());
+    }
     await loadData();
     setPage("detail");
+    setToastMessage("Doksli berhasil dibuat! Link siap dibagikan.");
   };
 
   const handleAddComment = async (doksliId: string, text: string) => {
@@ -698,13 +863,36 @@ export default function App() {
     );
   };
 
+  const handleShareDoksli = async (doksli: Doksli, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const shareUrl = getShareUrl(doksli.id);
+
+    if (navigator.share && /mobile|android|iphone|ipad/i.test(navigator.userAgent)) {
+      try {
+        await navigator.share({
+          title: `Doksli: ${doksli.name}`,
+          text: doksli.description || `Lihat dokumen "${doksli.name}" di DOKSLI`,
+          url: shareUrl,
+        });
+        return;
+      } catch {
+        // Fallback to clipboard if user cancels or share fails
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setToastMessage("Tautan Doksli berhasil disalin ke clipboard!");
+    } catch {
+      // Fallback prompt if clipboard access fails
+      prompt("Salin tautan ini:", shareUrl);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#f0f7ff] dark:bg-[#0b0f17] text-slate-800 dark:text-slate-100 transition-colors duration-200">
       <Header
-        onHome={() => {
-          loadData();
-          setPage("home");
-        }}
+        onHome={handleGoHome}
         onCreate={() => setPage("create")}
         darkMode={darkMode}
         onToggleTheme={toggleTheme}
@@ -718,24 +906,30 @@ export default function App() {
           onOpen={handleOpen}
           onCreate={() => setPage("create")}
           onRetry={loadData}
+          onShareDoksli={handleShareDoksli}
         />
       )}
 
       {page === "create" && (
         <CreatePage
           onSubmit={handleCreate}
-          onCancel={() => setPage("home")}
+          onCancel={handleGoHome}
         />
       )}
 
       {page === "detail" && activeDoksli && (
         <DetailPage
           doksli={activeDoksli}
-          onBack={() => {
-            loadData();
-            setPage("home");
-          }}
+          onBack={handleGoHome}
           onAddComment={handleAddComment}
+          onShareDoksli={handleShareDoksli}
+        />
+      )}
+
+      {toastMessage && (
+        <Toast
+          message={toastMessage}
+          onClose={() => setToastMessage(null)}
         />
       )}
     </div>

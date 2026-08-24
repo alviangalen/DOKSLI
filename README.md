@@ -76,6 +76,38 @@ docker compose down -v
 
 ---
 
+
+---
+
+## Deployment ke Vercel (Frontend)
+
+Frontend DOKSLI siap di-deploy secara instan ke **Vercel**.
+
+### Cara Deploy ke Vercel:
+
+#### Opsi 1: Melalui Vercel Dashboard (Git Import)
+1. Push repository proyek ini ke GitHub / GitLab.
+2. Buka [Vercel Dashboard](https://vercel.com/dashboard) dan pilih **Add New Project**.
+3. Import repository DOKSLI.
+4. Pada menu konfigurasi proyek:
+   - **Framework Preset**: `Vite`
+   - **Root Directory**: Biarkan root `./` (atau pilih `frontend` jika hanya ingin mengimpor folder frontend).
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `frontend/dist` (atau `dist` jika Root Directory diset ke `frontend`).
+5. **Environment Variables**:
+   Tambahkan variabel lingkungan untuk menghubungkan frontend ke Backend API:
+   - `VITE_API_URL` = `https://url-backend-kamu.com/api` (URL publik REST API Backend Laravel Anda).
+6. Klik **Deploy**.
+
+#### Opsi 2: Menggunakan Vercel CLI
+```bash
+# Install Vercel CLI jika belum ada
+npm install -g vercel
+
+# Deploy dari direktori root atau folder frontend
+vercel
+```
+
 ## Menjalankan Manual Tanpa Docker (Development)
 
 ### Persyaratan Sistem (Prerequisites)
