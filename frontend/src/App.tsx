@@ -69,7 +69,7 @@ function Header({ onHome, onCreate }: { onHome: () => void; onCreate: () => void
           onClick={onHome}
           className="flex items-center gap-2 font-bold text-lg text-blue-600 hover:text-blue-700 transition-colors cursor-pointer"
         >
-          <span className="text-xl">📂</span>
+          <span className="text-xl"></span>
           <span style={{ fontFamily: "'DM Sans', sans-serif" }}>DOKSLI</span>
         </button>
 
@@ -118,7 +118,7 @@ function HomePage({
           className="text-2xl sm:text-3xl font-extrabold text-slate-800 mb-2"
           style={{ fontFamily: "'DM Sans', sans-serif" }}
         >
-          Berbagi Dokumen & Meme Asli
+          Berbagi Dokumen Asli 
         </h1>
         <p className="text-slate-500 text-sm max-w-md mx-auto">
           Upload file original secara anonim. Tanpa akun, tanpa batas waktu.
@@ -135,7 +135,7 @@ function HomePage({
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 bg-white border border-blue-200 rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 transition"
           />
-          <span className="absolute left-3 top-2.5 text-slate-400 text-sm">🔍</span>
+          <span className="absolute left-3 top-2.5 text-slate-400 text-sm"></span>
         </div>
       </div>
 
@@ -146,10 +146,10 @@ function HomePage({
         </div>
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center text-red-600 shadow-xs">
-          <div className="text-3xl mb-2">⚠️</div>
+          <div className="text-3xl mb-2"></div>
           <p className="text-sm font-semibold mb-1">{error}</p>
           <p className="text-xs text-red-500 mb-4">
-            Pastikan server Laravel berjalan di port 8000 (<code className="bg-red-100 px-1.5 py-0.5 rounded">php artisan serve --port=8000</code>).
+            Pastikan backend berjalan dengan baik
           </p>
           <button
             onClick={onRetry}
@@ -160,7 +160,7 @@ function HomePage({
         </div>
       ) : filtered.length === 0 ? (
         <div className="bg-white border border-blue-100 rounded-2xl p-12 text-center text-slate-400 shadow-xs">
-          <div className="text-4xl mb-3">📂</div>
+          <div className="text-4xl mb-3"></div>
           <p className="text-base font-medium text-slate-600 mb-1">Belum ada Doksli</p>
           <p className="text-xs text-slate-400 mb-4">Mulai buat doksli baru dan bagikan file original kamu.</p>
           <button
@@ -201,8 +201,8 @@ function HomePage({
               <div className="pt-3 border-t border-slate-50 flex items-center justify-between text-xs text-slate-400">
                 <span>{formatDate(d.created_at)}</span>
                 <div className="flex items-center gap-3">
-                  <span>👁️ {d.view_count}</span>
-                  <span>💬 {d.comments_count ?? d.comments?.length ?? 0}</span>
+                  <span> {d.view_count}</span>
+                  <span> {d.comments_count ?? d.comments?.length ?? 0}</span>
                 </div>
               </div>
             </div>
@@ -593,7 +593,7 @@ export default function App() {
       const data = await fetchDokslis();
       setDoksliList(data);
     } catch (err: any) {
-      setError("Tidak dapat terhubung ke Backend Laravel API.");
+      setError("Tidak dapat terhubung ke Backend API.");
     } finally {
       setLoading(false);
     }

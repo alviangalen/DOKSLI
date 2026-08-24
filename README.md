@@ -4,17 +4,89 @@
 
 ---
 
-## Persyaratan Sistem (Prerequisites)
+## Menjalankan dengan Docker (Paling Direkomendasikan)
 
-- **PHP** >= 8.2 dengan ekstensi: `pdo_pgsql`, `pgsql`, `xml`, `fileinfo`, `mbstring`, `curl`
+Dengan Docker & Docker Compose, seluruh aplikasi (Frontend React/Nginx, Backend Laravel, Database PostgreSQL, dan Storage Volume) dapat langsung dijalankan tanpa perlu setup manual di host.
+
+### Prasyarat
+- [Docker](https://docs.docker.com/get-docker/)
+- [Docker Compose](https://docs.docker.com/compose/)
+
+### 1. Konfigurasi Environment (`.env`)
+
+Salin template environment [`.env.docker.example`](file:///.env.docker.example) menjadi `.env` di direktori root proyek:
+
+```bash
+cp .env.docker.example .env
+```
+
+Buka file `.env` tersebut dan sesuaikan konfigurasinya (terutama jika digunakan di lingkungan produksi):
+
+```env
+# =================================================================
+# DOKSLI Docker Environment Configuration
+# =================================================================
+
+# Port Mapping di Host
+FRONTEND_PORT=80        # Port untuk akses Web Frontend
+BACKEND_PORT=8000       # Port untuk akses REST API Backend langsung
+DB_PORT=5432            # Port database PostgreSQL di host
+
+# Backend Application Settings
+APP_NAME=DOKSLI
+APP_ENV=production      # Set 'local' untuk development atau 'production' untuk server produksi
+APP_DEBUG=false         # Set 'true' untuk debug atau 'false' untuk produksi
+APP_KEY=                # Biarkan kosong jika ingin di-generate otomatis saat start container
+APP_URL=http://localhost # Sesuaikan dengan domain/IP publik server Anda
+
+# Database Credentials
+DB_DATABASE=doksli
+DB_USERNAME=doksli_user
+DB_PASSWORD=doksli_password # Ganti dengan password yang kuat untuk lingkungan produksi
+```
+
+> **Catatan**: Saat menggunakan Docker, Anda **cukup mengonfigurasi satu file `.env` di direktori root**. Docker Compose akan secara otomatis menyalurkan variabel environment ini ke container Backend, Frontend, dan Database PostgreSQL.
+
+### 2. Jalankan Container
+Dari direktori root proyek `DOKSLI`:
+
+```bash
+docker compose up -d --build
+```
+
+### 3. Akses Aplikasi
+- **Web Frontend (UI)**: [http://localhost](http://localhost) (atau port sesuai `FRONTEND_PORT`)
+- **Backend REST API**: [http://localhost:8000/api](http://localhost:8000/api) atau melalui proxy [http://localhost/api](http://localhost/api)
+- **Database PostgreSQL**: `localhost:5432` (User, Password, dan DB sesuai `.env`)
+
+### 4. Perintah Bermanfaat
+```bash
+# Melihat log backend
+docker compose logs -f backend
+
+# Melihat status semua container
+docker compose ps
+
+# Menghentikan container
+docker compose down
+
+# Menghentikan dan menghapus volume database & storage
+docker compose down -v
+```
+
+---
+
+## Menjalankan Manual Tanpa Docker (Development)
+
+### Persyaratan Sistem (Prerequisites)
+
+- **PHP** >= 8.3 dengan ekstensi: `pdo_pgsql`, `pgsql`, `xml`, `fileinfo`, `mbstring`, `curl`, `gd`, `zip`
 - **Composer** (Package Manager PHP)
 - **Node.js** >= 18 & npm / pnpm
 - **PostgreSQL Database**
 - **Direktori Linux Storage**: `/mnt/storage`
 
 ---
-
-## Panduan Instalasi & Menjalankan
 
 ### 1. Persiapan Direktori Storage Linux
 
@@ -35,18 +107,12 @@ sudo chmod -R 775 /mnt/storage
    cd backend
    ```
 
-2. Konfigurasi file `.env` (pastikan kredensial PostgreSQL sesuai):
-   ```env
-   DB_CONNECTION=pgsql
-   DB_HOST=nama_host_sesuaikan
-   DB_PORT=nomor_port_sesuaikan
-   DB_DATABASE=nama_database_sesuaikan
-   DB_USERNAME=nama_username_sesuaikan
-   DB_PASSWORD=password_sesuaikan
-
-   FILESYSTEM_DISK=nama_folder_storage_sesuaikan
-   DOKSLI_STORAGE_PATH=/path/to/storage_sesuaikan
+2. Konfigurasi file `.env`:
+   ```bash
+   cp .env.example .env
+   php artisan key:generate
    ```
+   *Pastikan parameter database (`DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`) pada `backend/.env` sudah sesuai dengan database PostgreSQL lokal Anda.*
 
 3. Jalankan migrasi database:
    ```bash
@@ -75,11 +141,11 @@ Buka terminal baru:
    ```bash
    npm run dev
    ```
-   *Frontend akan aktif di URL yang tampil pada terminal (default `http://localhost:8443` atau `http://localhost:5173`).*
+   *Frontend akan aktif di URL yang tampil pada terminal (default `http://localhost:5173`).*
 
 ---
 
-## Daftar Endpoint REST API
+## 📡 Daftar Endpoint REST API
 
 | Method | Endpoint | Deskripsi |
 |---|---|---|
@@ -92,9 +158,9 @@ Buka terminal baru:
 
 ---
 
-## Catatan Konfigurasi Upload File Besar (PHP)
+## ⚙️ Catatan Konfigurasi Upload File Besar (PHP)
 
-Jika mengunggah file berukuran di atas 2 MB (hingga 100 MB), pastikan konfigurasi PHP (`php.ini`) mengizinkan ukuran tersebut:
+Jika mengunggah file berukuran di atas 2 MB (hingga 100 MB), pastikan konfigurasi PHP (`php.ini` atau Docker environment) mengizinkan ukuran tersebut:
 
 ```ini
 upload_max_filesize = 100M

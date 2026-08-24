@@ -1,0 +1,78 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: doksli-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-doksli}
+      POSTGRES_USER: ${DB_USERNAME:-doksli_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-doksli_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-doksli_user} -d ${DB_DATABASE:-doksli}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - doksli-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: doksli-backend
+    restart: unless-stopped
+    environment:
+      APP_NAME: "${APP_NAME:-DOKSLI}"
+      APP_ENV: "${APP_ENV:-production}"
+      APP_KEY: "${APP_KEY:-}"
+      APP_DEBUG: "${APP_DEBUG:-false}"
+      APP_URL: "${APP_URL:-http://localhost}"
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: "${DB_DATABASE:-doksli}"
+      DB_USERNAME: "${DB_USERNAME:-doksli_user}"
+      DB_PASSWORD: "${DB_PASSWORD:-doksli_password}"
+      FILESYSTEM_DISK: mnt_storage
+      DOKSLI_STORAGE_PATH: /mnt/storage
+      SESSION_DRIVER: file
+      CACHE_STORE: file
+      QUEUE_CONNECTION: sync
+    volumes:
+      - doksli_storage:/mnt/storage
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - doksli-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+    container_name: doksli-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - backend
+    networks:
+      - doksli-network
+
+volumes:
+  postgres_data:
+    driver: local
+  doksli_storage:
+    driver: local
+
+networks:
+  doksli-network:
+    driver: bridge
