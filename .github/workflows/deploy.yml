@@ -16,6 +16,7 @@ jobs:
     - name: Build dan Restart Docker
       run: |
         cd ${{ secrets.SERVER_PATH }}
+        git config --global --add safe.directory '*'
         git pull origin main
         docker compose down
         docker compose up -d --build
