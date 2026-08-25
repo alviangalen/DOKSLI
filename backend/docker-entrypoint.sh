@@ -11,6 +11,20 @@ if [ ! -f .env ]; then
     chmod 666 .env
 fi
 
+# Sinkronisasi konfigurasi Database dari Docker Environment ke .env
+if [ -n "$DB_HOST" ]; then
+    sed -i "s|^DB_HOST=.*|DB_HOST=${DB_HOST}|" .env 2>/dev/null || true
+fi
+if [ -n "$DB_DATABASE" ]; then
+    sed -i "s|^DB_DATABASE=.*|DB_DATABASE=${DB_DATABASE}|" .env 2>/dev/null || true
+fi
+if [ -n "$DB_USERNAME" ]; then
+    sed -i "s|^DB_USERNAME=.*|DB_USERNAME=${DB_USERNAME}|" .env 2>/dev/null || true
+fi
+if [ -n "$DB_PASSWORD" ]; then
+    sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=${DB_PASSWORD}|" .env 2>/dev/null || true
+fi
+
 echo "==> Menunggu database PostgreSQL (${DB_HOST:-postgres}:${DB_PORT:-5432}) siap..."
 until pg_isready -h "${DB_HOST:-postgres}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME:-doksli_user}" >/dev/null 2>&1; do
     sleep 1
