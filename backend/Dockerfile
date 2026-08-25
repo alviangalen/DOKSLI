@@ -57,6 +57,7 @@ RUN mkdir -p storage/framework/cache/data \
     storage/logs \
     bootstrap/cache \
     /mnt/storage/uploads \
+    /mnt/storage/comment_images \
     && chmod -R 777 storage bootstrap/cache
 
 EXPOSE 8000

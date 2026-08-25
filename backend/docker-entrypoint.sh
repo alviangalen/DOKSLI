@@ -33,6 +33,7 @@ echo "==> PostgreSQL siap terhubung!"
 
 # Pastikan folder storage dan cache memiliki izin akses penuh
 mkdir -p "${DOKSLI_STORAGE_PATH:-/mnt/storage}/uploads" \
+         "${DOKSLI_STORAGE_PATH:-/mnt/storage}/comment_images" \
          storage/framework/cache/data \
          storage/framework/sessions \
          storage/framework/views \

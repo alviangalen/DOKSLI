@@ -23,9 +23,9 @@ class Doksli extends Model
         return $this->hasMany(Comment::class, 'doksli_id')
             ->whereNull('parent_id')
             ->with(['replies' => function ($q) {
-                $q->orderBy('created_at', 'asc');
+                $q->orderBy('posted_at', 'asc');
             }])
-            ->orderBy('created_at', 'desc');
+            ->orderBy('posted_at', 'desc');
     }
 
     public function allComments(): HasMany

@@ -42,7 +42,7 @@ class Comment extends Model
 
     public function replies(): HasMany
     {
-        return $this->hasMany(Comment::class, 'parent_id')->orderBy('created_at', 'asc');
+        return $this->hasMany(Comment::class, 'parent_id')->with('replies')->orderBy('posted_at', 'asc');
     }
 
     public function getImageUrlAttribute(): ?string
