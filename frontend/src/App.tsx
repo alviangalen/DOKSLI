@@ -136,10 +136,16 @@ function Header({
       <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
         <button
           onClick={onHome}
-          className="flex items-center gap-2 font-bold text-lg text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors cursor-pointer"
+          className="flex items-center gap-2.5 font-extrabold text-xl tracking-wide cursor-pointer hover:opacity-90 transition-opacity"
         >
-          <img src={logoDoksli} alt="DOKSLI" width="35" height="35" className="rounded-lg object-contain" />
-          <span style={{ fontFamily: "'DM Sans', sans-serif" }}>DOKSLI</span>
+          <img
+            src={logoDoksli}
+            alt="DOKSLI"
+            className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+          />
+          <span className="text-blue-500 dark:text-blue-400 font-extrabold text-xl tracking-wider" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+            DOKSLI
+          </span>
         </button>
 
         <div className="flex items-center gap-2.5">
