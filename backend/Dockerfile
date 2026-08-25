@@ -1,17 +1,17 @@
-FROM php:8.3-cli-alpine
+FROM php:8.3-cli-bookworm
 
 # Set working directory
 WORKDIR /var/www/html
 
 # Install system runtime dependencies & PostgreSQL client
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     curl \
     git \
     unzip \
-    bash
+    && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions using official docker-php-extension-installer for fast build
+# Install PHP extensions using official docker-php-extension-installer
 COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
 RUN install-php-extensions \
     pdo_pgsql \
@@ -57,7 +57,7 @@ RUN mkdir -p storage/framework/cache/data \
     storage/logs \
     bootstrap/cache \
     /mnt/storage/uploads \
-    && chmod -R 777 storage bootstrap/cache /mnt/storage
+    && chmod -R 777 storage bootstrap/cache
 
 EXPOSE 8000
 
