@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Doksli,
   FileEntry,
@@ -34,7 +34,7 @@ function formatDateTime(dateStr: string) {
     }).format(d);
     const hours = String(d.getHours()).padStart(2, "0");
     const minutes = String(d.getMinutes()).padStart(2, "0");
-    return `${dateFormatted}, ${hours}:${minutes}`;
+    return `${dateFormatted} • ${hours}:${minutes}`;
   } catch {
     return dateStr;
   }
@@ -74,44 +74,45 @@ function formatSize(bytes: number) {
 function fileIcon(type: string) {
   if (!type) return "📎";
   if (type.startsWith("image/")) return "🖼️";
-  if (type.startsWith("video/")) return "🎬";
+  if (type.startsWith("video/")) return "🎥";
   if (type.startsWith("audio/")) return "🎵";
   if (type.includes("pdf")) return "📄";
+  if (type.includes("zip") || type.includes("rar") || type.includes("tar") || type.includes("compressed")) return "📦";
   if (type.includes("word") || type.includes("document")) return "📝";
-  if (type.includes("sheet") || type.includes("excel")) return "📊";
-  if (type.includes("zip") || type.includes("archive") || type.includes("compressed")) return "🗜️";
-  return "📎";
+  if (type.includes("sheet") || type.includes("excel") || type.includes("csv")) return "📊";
+  return "📁";
 }
 
 function fileCategoryLabel(type: string) {
-  if (!type) return "Dokumen";
+  if (!type) return "File";
   if (type.startsWith("image/")) return "Gambar";
   if (type.startsWith("video/")) return "Video";
   if (type.startsWith("audio/")) return "Audio";
   if (type.includes("pdf")) return "PDF";
-  return "Dokumen";
+  if (type.includes("zip") || type.includes("rar") || type.includes("tar")) return "Arsip";
+  if (type.includes("word") || type.includes("document")) return "Dokumen";
+  if (type.includes("sheet") || type.includes("excel") || type.includes("csv")) return "Spreadsheet";
+  return "Berkas";
 }
 
 function getShareUrl(doksliId: string) {
-  if (typeof window === "undefined") return "";
-  const url = new URL(window.location.href);
-  url.searchParams.set("doksli", doksliId);
-  return url.toString();
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/?doksli=${doksliId}`;
+  }
+  return `/?doksli=${doksliId}`;
 }
 
-type Page = "home" | "create" | "detail";
+type Page = "home" | "detail" | "create";
 
-const QUICK_EMOJIS = [
-  "😀", "😂", "🔥", "❤️", "👍", "💩", "🤡", "🚀",
-  "💡", "🥳", "💀", "🗿", "🙏", "😍", "🎉", "😎"
-];
+// ─── Emojis & Working GIF Presets ──────────────────────────────────────────
+
+const QUICK_EMOJIS = ["😂", "🔥", "❤️", "👍", "👏", "😭", "🤯", "🗿", "💀", "🙏", "✨", "🎉", "👀", "😎", "🚀"];
 
 const GIF_CATEGORIES = [
-  { id: "all", label: "🔥 Trending" },
+  { id: "all", label: "🔥 Semua" },
   { id: "lucu", label: "😂 Lucu" },
-  { id: "reaksi", label: "😮 Reaksi" },
+  { id: "reaksi", label: "🍿 Reaksi" },
   { id: "memes", label: "🗿 Memes" },
-  { id: "sedih", label: "😭 Sedih" },
   { id: "love", label: "💖 Love" },
   { id: "joget", label: "💃 Joget" },
   { id: "syok", label: "😱 Syok" },
@@ -119,32 +120,145 @@ const GIF_CATEGORIES = [
 ];
 
 const PRESET_GIFS = [
-  { id: "cat-vibing", name: "Cat Vibing", category: "joget", url: "https://media.giphy.com/media/jpbnoe3UIa8TU8LM13/giphy.gif", tags: ["cat", "joget", "dance", "vibing", "kucing", "musik"] },
-  { id: "gigachad", name: "GigaChad", category: "flex", url: "https://media.giphy.com/media/CAYVZA5NRb529kKQUc/giphy.gif", tags: ["gigachad", "flex", "mewing", "chad", "ganteng", "sigma"] },
-  { id: "popcorn", name: "Popcorn", category: "reaksi", url: "https://media.giphy.com/media/hVTouUU06W9W0/giphy.gif", tags: ["popcorn", "nonton", "nyimak", "reaksi", "drama"] },
-  { id: "mind-blown", name: "Mind Blown", category: "syok", url: "https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif", tags: ["mindblown", "syok", "kaget", "explosion", "wow"] },
-  { id: "crying-laughing", name: "Ngakak", category: "lucu", url: "https://media.giphy.com/media/l3fQf1OEAq0iri9RC/giphy.gif", tags: ["ngakak", "lucu", "ketawa", "lol", "wkwk"] },
-  { id: "doge", name: "Doge", category: "memes", url: "https://media.giphy.com/media/10ECeyOOj6nyJU/giphy.gif", tags: ["doge", "anjing", "dog", "meme", "wow"] },
-  { id: "pepe-hype", name: "Pepe Hype", category: "memes", url: "https://media.giphy.com/media/3oKIPnAiaMCws8nOsE/giphy.gif", tags: ["pepe", "hype", "party", "joget", "frog"] },
-  { id: "dancing-parrot", name: "Dancing Parrot", category: "joget", url: "https://media.giphy.com/media/l41K3o5TzE71GFDEO/giphy.gif", tags: ["parrot", "burung", "joget", "dance", "party"] },
-  { id: "shocked-pikachu", name: "Shocked Pikachu", category: "syok", url: "https://media.giphy.com/media/6nWhy3njWyc0GPea97/giphy.gif", tags: ["pikachu", "pokemon", "syok", "kaget", "meme"] },
-  { id: "confused-travolta", name: "Confused", category: "reaksi", url: "https://media.giphy.com/media/g01ZnwAUvutuK8GIQn/giphy.gif", tags: ["confused", "bingung", "travolta", "pulp fiction", "mana"] },
-  { id: "facepalm", name: "Facepalm", category: "reaksi", url: "https://media.giphy.com/media/xsF1FSDbjguis/giphy.gif", tags: ["facepalm", "tepok jidat", "pasrah", "capek", "stres"] },
-  { id: "side-eye-cat", name: "Side Eye Cat", category: "reaksi", url: "https://media.giphy.com/media/CaiVJuGVvR8Pe/giphy.gif", tags: ["cat", "side eye", "curiga", "sinis", "kucing"] },
-  { id: "deal-with-it", name: "Deal With It", category: "flex", url: "https://media.giphy.com/media/xT0XzCJadP6iTndDYA/giphy.gif", tags: ["deal with it", "kacamata", "cool", "flex", "mantap"] },
-  { id: "laughing-leo", name: "Laughing Leo", category: "lucu", url: "https://media.giphy.com/media/O5Xp9qtdp4m9a/giphy.gif", tags: ["leo", "dicaprio", "ketawa", "cheers", "lucu"] },
-  { id: "everything-fine", name: "Fine Dog", category: "reaksi", url: "https://media.giphy.com/media/9M5jK4GXmD5o1irGrF/giphy.gif", tags: ["fine", "fire", "kebakaran", "anjing", "pasrah"] },
-  { id: "cat-heart", name: "Cat Heart Eyes", category: "love", url: "https://media.giphy.com/media/MDJ9IbxxvDUQM/giphy.gif", tags: ["love", "cat", "kucing", "cinta", "uwu", "cute"] },
-  { id: "sad-cat", name: "Sad Cat", category: "sedih", url: "https://media.giphy.com/media/L95W4wv8nnb9K/giphy.gif", tags: ["sad", "sedih", "nangis", "cat", "kucing"] },
-  { id: "emotional-damage", name: "Emotional Damage", category: "lucu", url: "https://media.giphy.com/media/ro08zs5GLJKlq/giphy.gif", tags: ["emotional damage", "sakit", "lucu", "steven he"] },
-  { id: "party-cat", name: "Party Hard", category: "joget", url: "https://media.giphy.com/media/artj92V8o75VPL7AeQ/giphy.gif", tags: ["party", "pesta", "cheering", "asik", "joget"] },
-  { id: "homer-bush", name: "Homer Hiding", category: "reaksi", url: "https://media.giphy.com/media/COYGe9rZvfiaQ/giphy.gif", tags: ["homer", "simpsons", "kabur", "sembunyi", "malu"] },
-  { id: "think-about-it", name: "Roll Safe", category: "memes", url: "https://media.giphy.com/media/d3mlE7uhX8KFgEmY/giphy.gif", tags: ["pikir", "think", "smart", "otak", "meme"] },
-  { id: "spongebob-imagination", name: "Imagination", category: "memes", url: "https://media.giphy.com/media/SKGo6OUPg5yCI/giphy.gif", tags: ["spongebob", "pelangi", "rainbow", "imagination"] },
-  { id: "cat-typing", name: "Cat Typing Fast", category: "lucu", url: "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif", tags: ["cat", "typing", "ngetik", "kucing", "sibuk"] },
-  { id: "mic-drop", name: "Mic Drop", category: "flex", url: "https://media.giphy.com/media/3o7qDSOvfaCO9b3MlO/giphy.gif", tags: ["mic drop", "flex", "selesai", "kelar", "obama"] },
-  { id: "disappointed-fan", name: "Disappointed", category: "sedih", url: "https://media.giphy.com/media/LSk5aGh2WYL6g/giphy.gif", tags: ["disappointed", "kecewa", "sedih", "bapak", "cricket"] }
+  { id: "cat-vibing", name: "Cat Vibing", category: "joget", url: "https://i.giphy.com/jpbnoe3UIa8TU8LM13.gif", tags: ["cat", "joget", "dance", "vibing", "kucing", "musik"] },
+  { id: "gigachad", name: "GigaChad", category: "flex", url: "https://i.giphy.com/CAYVZA5NRb529kKQUc.gif", tags: ["gigachad", "flex", "mewing", "chad", "ganteng", "sigma"] },
+  { id: "popcorn", name: "Popcorn", category: "reaksi", url: "https://i.giphy.com/hVTouUU06W9W0.gif", tags: ["popcorn", "nonton", "nyimak", "reaksi", "drama"] },
+  { id: "mind-blown", name: "Mind Blown", category: "syok", url: "https://i.giphy.com/26ufdipQqU2lhNA4g.gif", tags: ["mindblown", "syok", "kaget", "explosion", "wow"] },
+  { id: "crying-laughing", name: "Ngakak", category: "lucu", url: "https://i.giphy.com/l3fQf1OEAq0iri9RC.gif", tags: ["ngakak", "lucu", "ketawa", "lol", "wkwk"] },
+  { id: "doge", name: "Doge", category: "memes", url: "https://i.giphy.com/10ECeyOOj6nyJU.gif", tags: ["doge", "anjing", "dog", "meme", "wow"] },
+  { id: "pepe-hype", name: "Pepe Hype", category: "memes", url: "https://i.giphy.com/3oKIPnAiaMCws8nOsE.gif", tags: ["pepe", "hype", "party", "joget", "frog"] },
+  { id: "dancing-parrot", name: "Dancing Parrot", category: "joget", url: "https://i.giphy.com/l41K3o5TzE71GFDEO.gif", tags: ["parrot", "burung", "joget", "dance", "party"] },
+  { id: "shocked-pikachu", name: "Shocked Pikachu", category: "syok", url: "https://i.giphy.com/6nWhy3njWyc0GPea97.gif", tags: ["pikachu", "pokemon", "syok", "kaget", "meme"] },
+  { id: "confused-travolta", name: "Confused", category: "reaksi", url: "https://i.giphy.com/g01ZnwAUvutuK8GIQn.gif", tags: ["confused", "bingung", "travolta", "pulp fiction", "mana"] },
+  { id: "facepalm", name: "Facepalm", category: "reaksi", url: "https://i.giphy.com/xsF1FSDbjguis.gif", tags: ["facepalm", "tepok jidat", "pasrah", "capek", "stres"] },
+  { id: "side-eye-cat", name: "Side Eye Cat", category: "reaksi", url: "https://i.giphy.com/CaiVJuGVvR8Pe.gif", tags: ["cat", "side eye", "curiga", "sinis", "kucing"] },
+  { id: "deal-with-it", name: "Deal With It", category: "flex", url: "https://i.giphy.com/xT0XzCJadP6iTndDYA.gif", tags: ["deal with it", "kacamata", "cool", "flex", "mantap"] },
+  { id: "laughing-leo", name: "Laughing Leo", category: "lucu", url: "https://i.giphy.com/O5Xp9qtdp4m9a.gif", tags: ["leo", "dicaprio", "ketawa", "cheers", "lucu"] },
+  { id: "everything-fine", name: "Fine Dog", category: "reaksi", url: "https://i.giphy.com/9M5jK4GXmD5o1irGrF.gif", tags: ["fine", "fire", "kebakaran", "anjing", "pasrah"] },
+  { id: "cat-heart", name: "Cat Heart Eyes", category: "love", url: "https://i.giphy.com/MDJ9IbxxvDUQM.gif", tags: ["love", "cat", "kucing", "cinta", "uwu", "cute"] },
+  { id: "sad-cat", name: "Sad Cat", category: "sedih", url: "https://i.giphy.com/L95W4wv8nnb9K.gif", tags: ["sad", "sedih", "nangis", "cat", "kucing"] },
+  { id: "emotional-damage", name: "Emotional Damage", category: "lucu", url: "https://i.giphy.com/ro08zs5GLJKlq.gif", tags: ["emotional damage", "sakit", "lucu", "steven he"] },
+  { id: "party-cat", name: "Party Hard", category: "joget", url: "https://i.giphy.com/artj92V8o75VPL7AeQ.gif", tags: ["party", "pesta", "cheering", "asik", "joget"] },
+  { id: "homer-bush", name: "Homer Hiding", category: "reaksi", url: "https://i.giphy.com/COYGe9rZvfiaQ.gif", tags: ["homer", "simpsons", "kabur", "sembunyi", "malu"] },
+  { id: "think-about-it", name: "Roll Safe", category: "memes", url: "https://i.giphy.com/d3mlE7uhX8KFgEmY.gif", tags: ["pikir", "think", "smart", "otak", "meme"] },
+  { id: "spongebob-imagination", name: "Imagination", category: "memes", url: "https://i.giphy.com/SKGo6OUPg5yCI.gif", tags: ["spongebob", "pelangi", "rainbow", "imagination"] },
+  { id: "cat-typing", name: "Cat Typing Fast", category: "lucu", url: "https://i.giphy.com/JIX9t2j0ZTN9S.gif", tags: ["cat", "typing", "ngetik", "kucing", "sibuk"] },
+  { id: "mic-drop", name: "Mic Drop", category: "flex", url: "https://i.giphy.com/3o7qDSOvfaCO9b3MlO.gif", tags: ["mic drop", "flex", "selesai", "kelar", "obama"] },
+  { id: "disappointed-fan", name: "Disappointed", category: "sedih", url: "https://i.giphy.com/LSk5aGh2WYL6g.gif", tags: ["disappointed", "kecewa", "sedih", "bapak", "cricket"] }
 ];
+
+// ─── Component: MediaLightboxModal ───────────────────────────────────────────
+
+function MediaLightboxModal({
+  title,
+  subtitle,
+  url,
+  mimeType,
+  onClose,
+}: {
+  title: string;
+  subtitle?: string;
+  url: string;
+  mimeType?: string;
+  onClose: () => void;
+}) {
+  const isImage = !mimeType || mimeType.startsWith("image/");
+  const isVideo = mimeType?.startsWith("video/");
+  const isAudio = mimeType?.startsWith("audio/");
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 transition-opacity animate-fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-w-5xl w-full max-h-[94vh] flex flex-col bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header Bar */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/95 flex-shrink-0">
+          <div className="min-w-0 flex-1 pr-3">
+            <p className="text-sm font-semibold text-slate-100 truncate">{title}</p>
+            {subtitle && <p className="text-xs text-slate-400 truncate">{subtitle}</p>}
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-2.5 py-1 text-xs font-medium text-blue-400 hover:text-blue-300 bg-blue-950/60 border border-blue-800/60 rounded-lg hover:bg-blue-900/60 transition flex items-center gap-1.5 cursor-pointer"
+              title="Buka original di tab baru"
+            >
+              <span>↗</span>
+              <span className="hidden sm:inline">Tab Baru</span>
+            </a>
+            <a
+              href={url}
+              download={title}
+              className="px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition flex items-center gap-1.5 cursor-pointer"
+              title="Unduh file"
+            >
+              <span>⬇</span>
+              <span className="hidden sm:inline">Unduh</span>
+            </a>
+            <button
+              onClick={onClose}
+              className="w-7 h-7 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg flex items-center justify-center transition cursor-pointer"
+              aria-label="Tutup"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {/* Media Container with full scroll support for tall images */}
+        <div className="flex-1 overflow-y-auto overflow-x-auto p-4 flex items-center justify-center bg-slate-950/80 min-h-[300px] max-h-[82vh]">
+          {isImage ? (
+            <img
+              src={url}
+              alt={title}
+              className="max-h-[78vh] w-auto max-w-full object-contain rounded-lg select-none shadow-md"
+            />
+          ) : isVideo ? (
+            <video
+              src={url}
+              controls
+              autoPlay
+              className="max-h-[78vh] max-w-full rounded-lg shadow-md"
+            />
+          ) : isAudio ? (
+            <div className="py-12 flex flex-col items-center">
+              <div className="text-5xl mb-4">🎵</div>
+              <audio src={url} controls className="w-full max-w-md" />
+            </div>
+          ) : (
+            <div className="py-12 text-center text-slate-300">
+              <div className="text-5xl mb-3">📄</div>
+              <p className="text-sm font-medium mb-3">Pratinjau dokumen / file non-gambar</p>
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-xl transition inline-flex items-center gap-2"
+              >
+                Buka File di Tab Baru ↗
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Component: Header ────────────────────────────────────────────────────────
 
@@ -160,29 +274,31 @@ function Header({
   onToggleTheme: () => void;
 }) {
   return (
-    <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-blue-100 dark:border-slate-800 shadow-xs transition-colors duration-200">
+    <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-blue-100 dark:border-slate-800 transition-colors">
       <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
         <button
           onClick={onHome}
-          className="flex items-center gap-2.5 font-extrabold text-xl tracking-wide cursor-pointer hover:opacity-90 transition-opacity"
+          className="flex items-center gap-2 cursor-pointer group"
         >
           <img
-            src="/logo-doksli.png"
-            alt="DOKSLI"
-            className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+            src="/assets/logo-doksli.png"
+            alt="Doksli Logo"
+            className="w-7 h-7 rounded-lg object-contain shadow-2xs group-hover:scale-105 transition-transform"
           />
-          <span className="text-blue-500 dark:text-blue-400 font-extrabold text-xl tracking-wider" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+          <span
+            className="font-bold text-base tracking-tight text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors"
+            style={{ fontFamily: "'DM Sans', sans-serif" }}
+          >
             DOKSLI
           </span>
         </button>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={onToggleTheme}
-            type="button"
-            className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer"
-            aria-label={darkMode ? "Beralih ke mode terang" : "Beralih ke mode gelap"}
-            title={darkMode ? "Mode Terang" : "Mode Gelap"}
+            className="p-2 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-blue-50/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+            aria-label="Ganti Tema"
+            title={darkMode ? "Ganti ke Tema Terang" : "Ganti ke Tema Gelap"}
           >
             {darkMode ? (
               <svg className="w-4.5 h-4.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -236,44 +352,37 @@ function HomePage({
       (d.description && d.description.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const handleShareClick = (d: Doksli, e: React.MouseEvent) => {
-    e.stopPropagation();
-    onShareDoksli(d, e);
-    setCopiedId(d.id);
-    setTimeout(() => {
-      setCopiedId(null);
-    }, 2000);
+  const handleShareClick = (doksli: Doksli, e: React.MouseEvent) => {
+    onShareDoksli(doksli, e);
+    setCopiedId(doksli.id);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-8">
-      {/* Hero */}
-      <div className="text-center mb-8">
+      {/* Hero Section */}
+      <div className="text-center py-6 sm:py-8 mb-6">
         <h1
-          className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-slate-100 mb-2 transition-colors"
+          className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-800 dark:text-slate-100 mb-2 transition-colors"
           style={{ fontFamily: "'DM Sans', sans-serif" }}
         >
           Berbagi Dokumen Asli
         </h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm max-w-md mx-auto transition-colors">
+        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto transition-colors">
           Upload file original secara anonim. Tanpa akun, tanpa batas waktu, dan bisa dibagikan via link ke siapapun.
         </p>
-      </div>
 
-      {/* Search bar */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1">
+        {/* Search */}
+        <div className="mt-5 max-w-lg mx-auto relative">
           <input
             type="text"
             placeholder="Cari doksli..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-blue-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-500 focus:border-blue-400 dark:focus:border-blue-500 transition"
+            className="w-full pl-9 pr-4 py-2 border border-blue-200 dark:border-slate-800 rounded-xl text-xs sm:text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-500 focus:border-blue-400 dark:focus:border-blue-500 shadow-2xs transition"
           />
-          <span className="absolute left-3 top-2.5 text-slate-400 text-sm">
-            <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+          <span className="absolute left-3 top-2.5 text-slate-400 text-xs sm:text-sm">
+            🔍
           </span>
         </div>
       </div>
@@ -336,11 +445,7 @@ function HomePage({
                       aria-label="Bagikan link doksli"
                     >
                       {copiedId === d.id ? (
-                        <span className="text-xs text-emerald-500 font-bold flex items-center gap-0.5">
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </span>
+                        <span className="text-xs font-semibold text-emerald-500">✓</span>
                       ) : (
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -351,17 +456,17 @@ function HomePage({
                 </div>
 
                 {d.description && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-4 leading-relaxed">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-4">
                     {d.description}
                   </p>
                 )}
               </div>
 
-              <div className="pt-3 border-t border-slate-50 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
+              <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500 pt-3 border-t border-slate-100 dark:border-slate-800/80 mt-2">
                 <span>{formatDateTime(d.created_at)}</span>
                 <div className="flex items-center gap-3">
-                  <span>dilihat: {d.view_count}</span>
-                  <span>komentar: {d.comments_count ?? countTotalComments(d.comments)}</span>
+                  <span>👁️ {d.view_count}</span>
+                  <span>💬 {d.comments_count ?? countTotalComments(d.comments)}</span>
                 </div>
               </div>
             </div>
@@ -372,7 +477,13 @@ function HomePage({
   );
 }
 
-// ─── Component: CreatePage ────────────────────────────────────────────────────
+// ─── Component: CreatePage (with Drag & Drop + Rich Previews) ─────────────────
+
+type SelectedFileWithPreview = {
+  file: File;
+  previewUrl: string | null;
+  id: string;
+};
 
 function CreatePage({
   onSubmit,
@@ -383,22 +494,70 @@ function CreatePage({
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedFileList, setSelectedFileList] = useState<SelectedFileWithPreview[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [modalPreviewFile, setModalPreviewFile] = useState<SelectedFileWithPreview | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Add files to preview list
+  const addFiles = useCallback((files: File[]) => {
+    if (!files.length) return;
+    const newItems: SelectedFileWithPreview[] = files.map((file) => ({
+      file,
+      previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+      id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 7)}`,
+    }));
+    setSelectedFileList((prev) => [...prev, ...newItems]);
+  }, []);
+
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      selectedFileList.forEach((item) => {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      });
+    };
+  }, []);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      setSelectedFiles((prev) => [...prev, ...newFiles]);
+      addFiles(Array.from(e.target.files));
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  const removeFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  const removeFile = (id: string) => {
+    setSelectedFileList((prev) => {
+      const item = prev.find((x) => x.id === id);
+      if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      return prev.filter((x) => x.id !== id);
+    });
   };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files) {
+      addFiles(Array.from(e.dataTransfer.files));
+    }
+  };
+
+  const totalSize = useMemo(() => {
+    return selectedFileList.reduce((acc, curr) => acc + curr.file.size, 0);
+  }, [selectedFileList]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -407,7 +566,8 @@ function CreatePage({
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      await onSubmit(name.trim(), description.trim(), selectedFiles);
+      const rawFiles = selectedFileList.map((x) => x.file);
+      await onSubmit(name.trim(), description.trim(), rawFiles);
     } catch (err: any) {
       setErrorMsg(err.message || "Gagal membuat Doksli.");
       setSubmitting(false);
@@ -466,9 +626,16 @@ function CreatePage({
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-            Upload File (/mnt/storage)
-          </label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              Upload File & Gambar
+            </label>
+            {selectedFileList.length > 0 && (
+              <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
+                {selectedFileList.length} file dipilih ({formatSize(totalSize)})
+              </span>
+            )}
+          </div>
 
           <input
             ref={fileInputRef}
@@ -478,38 +645,99 @@ function CreatePage({
             className="hidden"
           />
 
+          {/* Dropzone */}
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-blue-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 bg-blue-50/50 dark:bg-slate-950/50 hover:bg-blue-50 dark:hover:bg-slate-950/80 rounded-xl p-6 text-center cursor-pointer transition-colors"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all duration-200 ${
+              isDragging
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40 scale-[1.01]"
+                : "border-blue-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 bg-blue-50/40 dark:bg-slate-950/50 hover:bg-blue-50 dark:hover:bg-slate-950/80"
+            }`}
           >
-            <div className="text-2xl mb-1">📁</div>
-            <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Klik untuk memilih file</p>
+            <div className="text-3xl mb-1.5">📁</div>
+            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+              {isDragging ? "Lepaskan file di sini!" : "Klik atau seret file ke sini"}
+            </p>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-              Gambar, Video, Audio, PDF, Dokumen, Zip (Maks 100MB)
+              Mendukung Gambar (PNG, JPG, GIF, WebP), Video, Audio, PDF, Dokumen (Maks 100MB/file)
             </p>
           </div>
 
-          {selectedFiles.length > 0 && (
-            <div className="mt-3 space-y-1.5">
-              {selectedFiles.map((file, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between bg-blue-50/60 dark:bg-slate-800/80 border border-blue-100 dark:border-slate-700 rounded-lg px-3 py-2 text-xs"
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <span>{fileIcon(file.type)}</span>
-                    <span className="font-medium text-slate-700 dark:text-slate-200 truncate">{file.name}</span>
-                    <span className="text-slate-400 dark:text-slate-500">({formatSize(file.size)})</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeFile(i)}
-                    className="text-slate-400 hover:text-red-500 text-sm ml-2 cursor-pointer"
+          {/* Visual Previews Grid */}
+          {selectedFileList.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Pratinjau File yang Akan Diupload ({selectedFileList.length}):
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-80 overflow-y-auto pr-1">
+                {selectedFileList.map((item) => (
+                  <div
+                    key={item.id}
+                    className="relative group bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 flex items-center gap-3 shadow-2xs hover:border-blue-300 dark:hover:border-blue-500 transition-all"
                   >
-                    ✕
-                  </button>
-                </div>
-              ))}
+                    {/* Thumbnail Image or Icon */}
+                    {item.previewUrl ? (
+                      <div
+                        onClick={() => setModalPreviewFile(item)}
+                        className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100 dark:bg-slate-900 cursor-pointer group/thumb border border-slate-200 dark:border-slate-700"
+                        title="Klik untuk pratinjau penuh"
+                      >
+                        <img
+                          src={item.previewUrl}
+                          alt={item.file.name}
+                          className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform duration-200"
+                        />
+                        <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white text-xs">
+                          🔍
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-blue-50 dark:bg-slate-900 border border-blue-100 dark:border-slate-700 flex items-center justify-center text-2xl flex-shrink-0">
+                        {fileIcon(item.file.type)}
+                      </div>
+                    )}
+
+                    {/* Meta info */}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate" title={item.file.name}>
+                        {item.file.name}
+                      </p>
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-400 mt-0.5">
+                        <span className="px-1.5 py-0.2 bg-slate-100 dark:bg-slate-700/60 rounded text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                          {fileCategoryLabel(item.file.type)}
+                        </span>
+                        <span>•</span>
+                        <span>{formatSize(item.file.size)}</span>
+                      </div>
+                    </div>
+
+                    {/* Remove button */}
+                    <button
+                      type="button"
+                      onClick={() => removeFile(item.id)}
+                      className="w-7 h-7 flex-shrink-0 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 flex items-center justify-center transition cursor-pointer"
+                      title="Hapus file ini"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add more button */}
+              <div className="pt-1 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <span>+ Tambah file lainnya</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -530,7 +758,7 @@ function CreatePage({
             {submitting ? (
               <>
                 <span className="animate-spin">⏳</span>
-                <span>Mengupload...</span>
+                <span>Mengupload Doksli...</span>
               </>
             ) : (
               <span>Simpan Doksli</span>
@@ -538,11 +766,22 @@ function CreatePage({
           </button>
         </div>
       </form>
+
+      {/* Modal Preview for Single Selected File in Upload Form */}
+      {modalPreviewFile && modalPreviewFile.previewUrl && (
+        <MediaLightboxModal
+          title={modalPreviewFile.file.name}
+          subtitle={`Pratinjau sebelum upload • ${formatSize(modalPreviewFile.file.size)}`}
+          url={modalPreviewFile.previewUrl}
+          mimeType={modalPreviewFile.file.type}
+          onClose={() => setModalPreviewFile(null)}
+        />
+      )}
     </main>
   );
 }
 
-// ─── Component: CommentForm ───────────────────────────────────────────────────
+// ─── Component: CommentForm (with working GIF & Image support) ─────────────────
 
 function CommentForm({
   placeholder = "Tulis komentar (anonim)...",
@@ -566,19 +805,20 @@ function CommentForm({
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
-  const [customGifInput, setCustomGifInput] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [gifSearchTerm, setGifSearchTerm] = useState("");
   const [gifActiveCategory, setGifActiveCategory] = useState("all");
+  const [customGifInput, setCustomGifInput] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setSelectedFile(file);
       setSelectedImageUrl(null);
       setFilePreview(URL.createObjectURL(file));
+      setShowGifPicker(false);
     }
   };
 
@@ -589,6 +829,7 @@ function CommentForm({
       URL.revokeObjectURL(filePreview);
       setFilePreview(null);
     }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleInsertEmoji = (emoji: string) => {
@@ -598,7 +839,10 @@ function CommentForm({
   const handleSelectGif = (url: string) => {
     setSelectedImageUrl(url);
     setSelectedFile(null);
-    setFilePreview(null);
+    if (filePreview) {
+      URL.revokeObjectURL(filePreview);
+      setFilePreview(null);
+    }
     setShowGifPicker(false);
   };
 
@@ -614,118 +858,150 @@ function CommentForm({
       setShowEmojiPicker(false);
       setShowGifPicker(false);
       if (onCancel) onCancel();
+    } catch (err: any) {
+      alert(err.message || "Gagal mengirim komentar.");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 p-4 rounded-xl shadow-xs transition-colors">
-      <div className="relative">
+    <form onSubmit={handleSubmit} className="space-y-2">
+      <div className="relative border border-slate-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900/90 shadow-2xs focus-within:border-blue-400 dark:focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 dark:focus-within:ring-blue-950/60 transition-all">
         <textarea
-          rows={2}
+          rows={parentId ? 2 : 3}
           placeholder={placeholder}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          className="w-full px-3 py-2 border border-blue-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-500 transition resize-none"
+          className="w-full px-4 pt-3 pb-2 bg-transparent text-xs sm:text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none resize-none"
         />
-      </div>
 
-      {/* Attachment Preview */}
-      {(filePreview || selectedImageUrl) && (
-        <div className="relative inline-block border border-blue-200 dark:border-slate-700 rounded-lg p-1 bg-slate-50 dark:bg-slate-950">
-          <img
-            src={filePreview || selectedImageUrl || ""}
-            alt="Lampiran komentar"
-            className="max-h-32 max-w-full rounded-md object-contain"
-          />
-          <button
-            type="button"
-            onClick={handleRemoveAttachment}
-            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-md hover:bg-red-600 cursor-pointer"
-            title="Hapus lampiran"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+        {/* Attachment preview banner */}
+        {(selectedFile || selectedImageUrl) && (
+          <div className="px-4 pb-2 flex items-center gap-2">
+            <div className="relative inline-block rounded-xl overflow-hidden border border-blue-200 dark:border-slate-700 bg-blue-50 dark:bg-slate-800 p-1">
+              <img
+                src={filePreview || selectedImageUrl || ""}
+                alt="Lampiran komentar"
+                className="w-14 h-14 object-cover rounded-lg"
+              />
+              <button
+                type="button"
+                onClick={handleRemoveAttachment}
+                className="absolute -top-1 -right-1 w-5 h-5 bg-slate-900/90 text-white text-[10px] font-bold rounded-full flex items-center justify-center hover:bg-red-600 transition shadow-xs cursor-pointer"
+                title="Hapus lampiran"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="font-semibold text-blue-600 dark:text-blue-400">
+                {selectedFile ? "File terlampir:" : "GIF terpilih:"}
+              </p>
+              <p className="truncate max-w-[200px]">
+                {selectedFile ? selectedFile.name : selectedImageUrl}
+              </p>
+            </div>
+          </div>
+        )}
 
-      {/* Toolbar & Action Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800/80 pt-2">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Emoji toggle */}
-          <button
-            type="button"
-            onClick={() => {
-              setShowEmojiPicker(!showEmojiPicker);
-              setShowGifPicker(false);
-            }}
-            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-blue-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-100 dark:hover:bg-slate-700 transition flex items-center gap-1 cursor-pointer"
-          >
-            <span>😀</span>
-            <span>Emoji</span>
-          </button>
+        {/* Action bar inside comment box */}
+        <div className="flex items-center justify-between px-3 py-2 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/30 rounded-b-2xl">
+          <div className="flex items-center gap-1">
+            {/* Hidden image file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
 
-          {/* Image upload button */}
-          <input
-            ref={imageInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={() => imageInputRef.current?.click()}
-            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-blue-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-100 dark:hover:bg-slate-700 transition flex items-center gap-1 cursor-pointer"
-          >
-            <span>📷</span>
-            <span>Gambar/GIF</span>
-          </button>
-
-          {/* Preset GIF picker button */}
-          <button
-            type="button"
-            onClick={() => {
-              setShowGifPicker(!showGifPicker);
-              setShowEmojiPicker(false);
-            }}
-            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-blue-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-100 dark:hover:bg-slate-700 transition flex items-center gap-1 cursor-pointer"
-          >
-            <span>🎬</span>
-            <span>GIF Presets</span>
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {onCancel && (
+            {/* Upload image button */}
             <button
               type="button"
-              onClick={onCancel}
-              className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs"
+              title="Upload Foto/GIF lokal"
             >
-              Batal
+              <span>🖼️</span>
+              <span className="hidden sm:inline text-[11px]">Upload</span>
             </button>
-          )}
-          <button
-            type="submit"
-            disabled={submitting || (!text.trim() && !selectedFile && !selectedImageUrl)}
-            className="px-4 py-1.5 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 disabled:bg-blue-200 dark:disabled:bg-slate-800 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg transition shadow-2xs cursor-pointer flex items-center gap-1.5"
-          >
-            {submitting ? "Mengirim..." : parentId ? "Kirim Balasan" : "Kirim Komentar"}
-          </button>
+
+            {/* Preset GIF picker button */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowGifPicker((prev) => !prev);
+                setShowEmojiPicker(false);
+              }}
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium ${
+                showGifPicker
+                  ? "bg-blue-500 text-white dark:bg-blue-600"
+                  : "text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800"
+              }`}
+              title="Pilih GIF Populer"
+            >
+              <span>🎬</span>
+              <span className="text-[11px]">GIF</span>
+            </button>
+
+            {/* Emoji picker toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowEmojiPicker((prev) => !prev);
+                setShowGifPicker(false);
+              }}
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer text-xs ${
+                showEmojiPicker
+                  ? "bg-amber-100 dark:bg-amber-950/60 text-amber-600"
+                  : "text-slate-500 dark:text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-slate-800"
+              }`}
+              title="Pilih Emoji"
+            >
+              <span>😀</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition cursor-pointer"
+              >
+                Batal
+              </button>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting || (!text.trim() && !selectedFile && !selectedImageUrl)}
+              className="px-4 py-1.5 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 disabled:bg-blue-200 dark:disabled:bg-slate-800 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-xl transition shadow-xs cursor-pointer flex items-center gap-1.5"
+            >
+              {submitting ? (
+                <>
+                  <span className="animate-spin text-xs">⏳</span>
+                  <span>Kirim...</span>
+                </>
+              ) : (
+                <span>Kirim</span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Emoji Picker Bar */}
+      {/* Quick Emoji Picker Drawer */}
       {showEmojiPicker && (
-        <div className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-blue-100 dark:border-slate-800 rounded-lg grid grid-cols-8 gap-1.5 text-lg animate-fade-in">
-          {QUICK_EMOJIS.map((emoji, i) => (
+        <div className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-md flex flex-wrap gap-1.5 animate-fade-in">
+          {QUICK_EMOJIS.map((emoji) => (
             <button
-              key={i}
+              key={emoji}
               type="button"
               onClick={() => handleInsertEmoji(emoji)}
-              className="hover:bg-white dark:hover:bg-slate-800 rounded p-1 text-center transition cursor-pointer"
+              className="w-8 h-8 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 flex items-center justify-center text-lg hover:scale-110 transition cursor-pointer"
             >
               {emoji}
             </button>
@@ -733,34 +1009,32 @@ function CommentForm({
         </div>
       )}
 
-      {/* GIF Picker Drawer (Instagram Style) */}
+      {/* GIF Picker Drawer */}
       {showGifPicker && (
-        <div className="p-3.5 bg-slate-50 dark:bg-slate-950 border border-blue-100 dark:border-slate-800 rounded-2xl space-y-3 animate-fade-in transition-colors shadow-xs">
-          {/* Header & Search Bar */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                placeholder="Cari GIF (kucing, ngakak, joget, flex...)"
-                value={gifSearchTerm}
-                onChange={(e) => setGifSearchTerm(e.target.value)}
-                className="w-full pl-8 pr-7 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-              />
-              <span className="absolute left-2.5 top-2 text-slate-400 text-xs">🔍</span>
-              {gifSearchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setGifSearchTerm("")}
-                  className="absolute right-2.5 top-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs cursor-pointer"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+        <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl space-y-3 animate-fade-in">
+          {/* Search Bar */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Cari GIF (kucing, joget, ketawa, flex, syok...)"
+              value={gifSearchTerm}
+              onChange={(e) => setGifSearchTerm(e.target.value)}
+              className="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <span className="absolute left-2.5 top-2 text-xs text-slate-400">🔍</span>
+            {gifSearchTerm && (
+              <button
+                type="button"
+                onClick={() => setGifSearchTerm("")}
+                className="absolute right-2.5 top-1.5 text-xs text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
-          {/* Category Pills (Horizontal Scroll) */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+          {/* Category Tabs */}
+          <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar">
             {GIF_CATEGORIES.map((cat) => {
               const isActive = gifActiveCategory === cat.id && !gifSearchTerm;
               return (
@@ -771,10 +1045,10 @@ function CommentForm({
                     setGifActiveCategory(cat.id);
                     setGifSearchTerm("");
                   }}
-                  className={`px-3 py-1 rounded-full whitespace-nowrap font-medium transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition cursor-pointer ${
                     isActive
-                      ? "bg-blue-500 text-white shadow-2xs"
-                      : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-800"
+                      ? "bg-blue-500 text-white dark:bg-blue-600"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                   }`}
                 >
                   {cat.label}
@@ -805,7 +1079,7 @@ function CommentForm({
             }
 
             return (
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-52 overflow-y-auto pr-1">
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-56 overflow-y-auto pr-1">
                 {filteredGifs.map((gif) => (
                   <button
                     key={gif.id}
@@ -873,63 +1147,66 @@ function CommentItem({
     imageFile?: File | null,
     imageUrl?: string | null
   ) => Promise<void>;
-  onPreviewImage: (url: string) => void;
+  onPreviewImage: (url: string, title?: string) => void;
 }) {
   const [showReplyForm, setShowReplyForm] = useState(false);
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-xl p-4 transition-colors shadow-2xs">
-      <div className="flex items-center justify-between mb-1.5">
+    <div className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-2xl p-4 shadow-2xs space-y-2 transition-colors">
+      <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 font-semibold text-xs flex items-center justify-center">
+          <span className="w-5 h-5 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-500 text-white text-[10px] font-bold flex items-center justify-center">
             A
-          </div>
-          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">Anonim</span>
+          </span>
+          <span className="font-semibold text-slate-700 dark:text-slate-300">
+            Anonim
+          </span>
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-slate-400 dark:text-slate-500">
+        <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 text-[11px]">
           <span>{timeAgo(comment.posted_at)}</span>
-          <span>·</span>
+          <span>•</span>
           <span>{formatDateTime(comment.posted_at)}</span>
         </div>
       </div>
 
       {comment.comment_text && (
-        <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
+        <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
           {comment.comment_text}
         </p>
       )}
 
       {comment.image_url && (
-        <div className="mt-2">
+        <div className="pt-1">
           <img
             src={comment.image_url}
             alt="Lampiran Komentar"
-            onClick={() => onPreviewImage(comment.image_url!)}
-            className="max-w-xs max-h-60 rounded-xl object-cover border border-slate-200 dark:border-slate-800 cursor-pointer hover:opacity-90 transition shadow-2xs"
+            onClick={() => onPreviewImage(comment.image_url!, "Gambar Komentar")}
+            className="max-h-60 max-w-full sm:max-w-xs rounded-xl border border-slate-200 dark:border-slate-800 object-cover cursor-pointer hover:opacity-95 hover:scale-[1.01] transition shadow-xs"
+            loading="lazy"
           />
         </div>
       )}
 
-      <div className="mt-2.5 flex items-center gap-3">
+      {/* Reply toggle button */}
+      <div className="pt-1 flex items-center gap-3">
         <button
           type="button"
-          onClick={() => setShowReplyForm(!showReplyForm)}
-          className="flex items-center gap-1 text-xs font-medium text-blue-500 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 transition cursor-pointer"
+          onClick={() => setShowReplyForm((prev) => !prev)}
+          className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition cursor-pointer flex items-center gap-1"
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-          </svg>
-          <span>{showReplyForm ? "Batal Balas" : "Balas"}</span>
+          <span>💬</span>
+          <span>{showReplyForm ? "Tutup Balasan" : "Balas"}</span>
         </button>
       </div>
 
+      {/* Nested Reply form */}
       {showReplyForm && (
-        <div className="mt-3">
+        <div className="pt-2 pl-3 border-l-2 border-blue-200 dark:border-blue-900/60">
           <CommentForm
-            placeholder="Tulis balasan..."
+            placeholder="Tulis balasan untuk komentar ini..."
             parentId={comment.id}
-            onSubmit={async (t, pId, f, url) => {
-              await onAddComment(doksliId, t, pId, f, url);
+            onSubmit={async (text, pId, img, url) => {
+              await onAddComment(doksliId, text, pId, img, url);
               setShowReplyForm(false);
             }}
             onCancel={() => setShowReplyForm(false)}
@@ -937,9 +1214,9 @@ function CommentItem({
         </div>
       )}
 
-      {/* Nested Replies */}
+      {/* Recursive nested replies */}
       {comment.replies && comment.replies.length > 0 && (
-        <div className="border-l-2 border-blue-200 dark:border-slate-800 pl-3 sm:pl-4 mt-3 space-y-3">
+        <div className="pt-2 pl-3 sm:pl-4 border-l-2 border-slate-100 dark:border-slate-800 space-y-2 mt-2">
           {comment.replies.map((reply) => (
             <CommentItem
               key={reply.id}
@@ -974,74 +1251,57 @@ function DetailPage({
   ) => Promise<void>;
   onShareDoksli: (doksli: Doksli, e: React.MouseEvent) => void;
 }) {
-  const [previewFile, setPreviewFile] = useState<FileEntry | null>(null);
-  const [previewCommentImage, setPreviewCommentImage] = useState<string | null>(null);
+  const [lightboxData, setLightboxData] = useState<{
+    title: string;
+    subtitle?: string;
+    url: string;
+    mimeType?: string;
+  } | null>(null);
+
   const [copied, setCopied] = useState(false);
+
+  const handleShareClick = (e: React.MouseEvent) => {
+    onShareDoksli(doksli, e);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const totalComments = countTotalComments(doksli.comments);
 
-  const handleShare = (e: React.MouseEvent) => {
-    onShareDoksli(doksli, e);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
-  };
-
   return (
     <main className="max-w-3xl mx-auto px-4 py-8">
-      {/* Back & Share Bar */}
-      <div className="flex items-center justify-between mb-6">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
-        >
-          <span>←</span>
-          <span>Kembali ke Beranda</span>
-        </button>
+      {/* Back button */}
+      <button
+        onClick={onBack}
+        className="mb-4 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1.5 cursor-pointer"
+      >
+        <span>←</span>
+        <span>Kembali ke Beranda</span>
+      </button>
 
-        <button
-          onClick={handleShare}
-          type="button"
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-all shadow-2xs cursor-pointer"
-        >
-          {copied ? (
-            <>
-              <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Link Tersalin!</span>
-            </>
-          ) : (
-            <>
-              <svg className="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-              </svg>
-              <span>Bagikan Link</span>
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* Header Info */}
+      {/* Doksli Main Card */}
       <div className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-2xl p-6 shadow-xs mb-6 transition-colors">
-        <div className="flex items-start justify-between gap-4 mb-2">
+        <div className="flex items-start justify-between gap-4 mb-3">
           <h1
-            className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 transition-colors"
+            className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 leading-tight"
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
             {doksli.name}
           </h1>
 
           <button
-            onClick={handleShare}
-            className="flex-shrink-0 p-2 rounded-xl bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-slate-700 transition-all cursor-pointer"
-            title="Salin tautan Doksli"
+            onClick={handleShareClick}
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-semibold transition cursor-pointer"
           >
             {copied ? (
-              <span className="text-xs text-emerald-500 font-semibold px-1">Tersalin!</span>
+              <span className="text-emerald-500 font-bold">✓ Tersalin</span>
             ) : (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
+              <>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+                <span>Bagikan Link</span>
+              </>
             )}
           </button>
         </div>
@@ -1052,19 +1312,19 @@ function DetailPage({
           </p>
         )}
 
-        <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 dark:text-slate-500 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 dark:text-slate-500 pt-3 border-t border-slate-100 dark:border-slate-800">
           <span>Diupload {formatDateTime(doksli.created_at)}</span>
-          <span>·</span>
+          <span>•</span>
           <span>👁️ {doksli.view_count} dilihat</span>
-          <span>·</span>
-          <span>{doksli.files?.length ?? 0} file</span>
+          <span>•</span>
+          <span>📁 {doksli.files?.length ?? 0} file</span>
         </div>
       </div>
 
-      {/* Files */}
+      {/* Files Section */}
       <section className="mb-8">
-        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-          File ({doksli.files?.length ?? 0})
+        <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+          File Dokumen ({doksli.files?.length ?? 0})
         </h2>
 
         {(!doksli.files || doksli.files.length === 0) ? (
@@ -1073,111 +1333,74 @@ function DetailPage({
             <p className="text-sm">Belum ada file di doksli ini.</p>
           </div>
         ) : (
-          <div className="grid gap-2 sm:grid-cols-2">
-            {doksli.files.map((f) => (
-              <button
-                key={f.id}
-                onClick={() =>
-                  f.mime_type.startsWith("image/")
-                    ? setPreviewFile(f)
-                    : window.open(getFileViewUrl(f.id), "_blank")
-                }
-                className="text-left flex items-center gap-3 bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-xl p-3 hover:border-blue-300 dark:hover:border-blue-500/50 hover:shadow-sm transition-all group cursor-pointer"
-              >
-                {f.mime_type.startsWith("image/") ? (
-                  <img
-                    src={getFileViewUrl(f.id)}
-                    alt={f.original_name}
-                    className="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-blue-50 dark:bg-slate-800"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-lg bg-blue-50 dark:bg-slate-800 flex items-center justify-center text-2xl flex-shrink-0">
-                    {fileIcon(f.mime_type)}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                    {f.original_name}
-                  </p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                    {fileCategoryLabel(f.mime_type)} · {formatSize(f.file_size)}
-                  </p>
-                </div>
-                <svg
-                  className="flex-shrink-0 text-blue-200 dark:text-slate-600 group-hover:text-blue-400 dark:group-hover:text-blue-300 transition-colors"
-                  width="14" height="14" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {doksli.files.map((f) => {
+              const viewUrl = getFileViewUrl(f.id);
+              return (
+                <div
+                  key={f.id}
+                  onClick={() =>
+                    setLightboxData({
+                      title: f.original_name,
+                      subtitle: `${fileCategoryLabel(f.mime_type)} • ${formatSize(f.file_size)}`,
+                      url: viewUrl,
+                      mimeType: f.mime_type,
+                    })
+                  }
+                  className="text-left flex items-center gap-3 bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-xl p-3 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all group cursor-pointer"
                 >
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                  <polyline points="15 3 21 3 21 9" />
-                  <line x1="10" y1="14" x2="21" y2="3" />
-                </svg>
-              </button>
-            ))}
+                  {f.mime_type.startsWith("image/") ? (
+                    <img
+                      src={viewUrl}
+                      alt={f.original_name}
+                      className="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-blue-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-blue-50 dark:bg-slate-800 flex items-center justify-center text-2xl flex-shrink-0 border border-blue-100 dark:border-slate-700">
+                      {fileIcon(f.mime_type)}
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      {f.original_name}
+                    </p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                      {fileCategoryLabel(f.mime_type)} • {formatSize(f.file_size)}
+                    </p>
+                  </div>
+
+                  <span className="text-xs text-blue-500 font-medium group-hover:translate-x-0.5 transition-transform flex-shrink-0">
+                    Lihat ↗
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
 
-      {/* Image preview modal for uploaded doksli file */}
-      {previewFile && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4"
-          onClick={() => setPreviewFile(null)}
-        >
-          <div className="relative max-w-3xl max-h-[85vh] w-full" onClick={(e) => e.stopPropagation()}>
-            <img
-              src={getFileViewUrl(previewFile.id)}
-              alt={previewFile.original_name}
-              className="w-full h-full object-contain rounded-xl"
-            />
-            <button
-              onClick={() => setPreviewFile(null)}
-              className="absolute top-3 right-3 w-8 h-8 bg-slate-900/80 dark:bg-slate-800/90 text-white rounded-full flex items-center justify-center hover:bg-slate-900 transition-colors cursor-pointer"
-              aria-label="Tutup"
-            >
-              ✕
-            </button>
-            <div className="absolute bottom-3 left-3 bg-slate-900/90 dark:bg-slate-900/95 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-slate-700/50">
-              <p className="text-xs font-medium text-slate-100">{previewFile.original_name}</p>
-              <p className="text-xs text-slate-400">{formatSize(previewFile.file_size)}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Image preview modal for comment attachment */}
-      {previewCommentImage && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4"
-          onClick={() => setPreviewCommentImage(null)}
-        >
-          <div className="relative max-w-3xl max-h-[85vh] w-full" onClick={(e) => e.stopPropagation()}>
-            <img
-              src={previewCommentImage}
-              alt="Preview Komentar"
-              className="w-full h-full object-contain rounded-xl"
-            />
-            <button
-              onClick={() => setPreviewCommentImage(null)}
-              className="absolute top-3 right-3 w-8 h-8 bg-slate-900/80 dark:bg-slate-800/90 text-white rounded-full flex items-center justify-center hover:bg-slate-900 transition-colors cursor-pointer"
-              aria-label="Tutup"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+      {/* Lightbox Modal (Fixed complete full-height view) */}
+      {lightboxData && (
+        <MediaLightboxModal
+          title={lightboxData.title}
+          subtitle={lightboxData.subtitle}
+          url={lightboxData.url}
+          mimeType={lightboxData.mimeType}
+          onClose={() => setLightboxData(null)}
+        />
       )}
 
       {/* Comments Section */}
       <section>
-        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+        <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider" style={{ fontFamily: "'DM Sans', sans-serif" }}>
           Komentar ({totalComments})
         </h2>
 
         {/* Primary Comment form */}
         <div className="mb-6">
           <CommentForm
-            placeholder="Tulis komentar (anonim)..."
+            placeholder="Tulis komentar atau reaksi (anonim)..."
             onSubmit={(text, pId, img, url) => onAddComment(doksli.id, text, pId, img, url)}
           />
         </div>
@@ -1195,7 +1418,13 @@ function DetailPage({
                 comment={c}
                 doksliId={doksli.id}
                 onAddComment={onAddComment}
-                onPreviewImage={(url) => setPreviewCommentImage(url)}
+                onPreviewImage={(url, title) =>
+                  setLightboxData({
+                    title: title || "Gambar Komentar",
+                    url,
+                    mimeType: "image/jpeg",
+                  })
+                }
               />
             ))}
           </div>
