@@ -43,7 +43,7 @@ services:
       CACHE_STORE: file
       QUEUE_CONNECTION: sync
     volumes:
-      - doksli_storage:/mnt/storage
+      - /mnt/storage:/mnt/storage
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:
@@ -69,8 +69,6 @@ services:
 
 volumes:
   postgres_data:
-    driver: local
-  doksli_storage:
     driver: local
 
 networks:
