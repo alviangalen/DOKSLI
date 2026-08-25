@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import logoDoksli from "./img/logo/logo-doksli.png";
 import {
   Doksli,
   FileEntry,
@@ -139,7 +138,7 @@ function Header({
           className="flex items-center gap-2.5 font-extrabold text-xl tracking-wide cursor-pointer hover:opacity-90 transition-opacity"
         >
           <img
-            src={logoDoksli}
+            src="/logo-doksli.png"
             alt="DOKSLI"
             className="w-9 h-9 rounded-full object-cover flex-shrink-0"
           />
