@@ -3,35 +3,27 @@ FROM php:8.3-cli-alpine
 # Set working directory
 WORKDIR /var/www/html
 
-# Install system dependencies & PostgreSQL client
+# Install system runtime dependencies & PostgreSQL client
 RUN apk add --no-cache \
-    postgresql-dev \
     postgresql-client \
-    libzip-dev \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
-    icu-dev \
-    oniguruma-dev \
     curl \
     git \
     unzip \
     bash
 
-# Configure and install PHP extensions
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) \
-        pdo \
-        pdo_pgsql \
-        pgsql \
-        mbstring \
-        exif \
-        pcntl \
-        bcmath \
-        gd \
-        zip \
-        intl \
-        opcache
+# Install PHP extensions using official docker-php-extension-installer for fast build
+COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
+RUN install-php-extensions \
+    pdo_pgsql \
+    pgsql \
+    mbstring \
+    exif \
+    pcntl \
+    bcmath \
+    gd \
+    zip \
+    intl \
+    opcache
 
 # Copy Composer from official composer image
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
