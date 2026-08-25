@@ -18,6 +18,13 @@ class Comment extends Model
         'ip_address',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'posted_at' => 'datetime',
+        ];
+    }
+
     public function doksli(): BelongsTo
     {
         return $this->belongsTo(Doksli::class, 'doksli_id');

@@ -14,9 +14,20 @@ import {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+function parseIsoDate(dateStr: string): Date {
+  if (!dateStr) return new Date();
+  let normalized = dateStr.trim();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(normalized)) {
+    normalized = normalized.replace(" ", "T") + "Z";
+  } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(normalized)) {
+    normalized = normalized + "Z";
+  }
+  return new Date(normalized);
+}
+
 function formatDate(dateStr: string) {
   try {
-    const d = new Date(dateStr);
+    const d = parseIsoDate(dateStr);
     return new Intl.DateTimeFormat("id-ID", {
       day: "numeric",
       month: "short",
@@ -29,8 +40,10 @@ function formatDate(dateStr: string) {
 
 function timeAgo(dateStr: string) {
   try {
-    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-    if (diff < 60) return "baru saja";
+    const d = parseIsoDate(dateStr);
+    const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (diff <= 10) return "baru saja";
+    if (diff < 60) return `${diff} dtk lalu`;
     if (diff < 3600) return `${Math.floor(diff / 60)} mnt lalu`;
     if (diff < 86400) return `${Math.floor(diff / 3600)} jam lalu`;
     return `${Math.floor(diff / 86400)} hari lalu`;
