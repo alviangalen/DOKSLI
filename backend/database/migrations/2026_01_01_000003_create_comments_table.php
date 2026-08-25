@@ -11,7 +11,9 @@ return new class extends Migration
         Schema::create('comments', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('doksli_id')->constrained('dokslis')->cascadeOnDelete();
-            $table->text('comment_text');
+            $table->foreignUuid('parent_id')->nullable()->constrained('comments')->cascadeOnDelete();
+            $table->text('comment_text')->nullable();
+            $table->string('image_path')->nullable();
             $table->timestamp('posted_at');
             $table->string('ip_address')->nullable();
             $table->timestamps();

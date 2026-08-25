@@ -20,6 +20,16 @@ class Doksli extends Model
 
     public function comments(): HasMany
     {
-        return $this->hasMany(Comment::class, 'doksli_id')->orderBy('created_at', 'desc');
+        return $this->hasMany(Comment::class, 'doksli_id')
+            ->whereNull('parent_id')
+            ->with(['replies' => function ($q) {
+                $q->orderBy('created_at', 'asc');
+            }])
+            ->orderBy('created_at', 'desc');
+    }
+
+    public function allComments(): HasMany
+    {
+        return $this->hasMany(Comment::class, 'doksli_id');
     }
 }
