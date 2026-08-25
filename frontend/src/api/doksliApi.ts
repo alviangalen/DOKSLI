@@ -24,11 +24,7 @@ export type Doksli = {
   comments_count?: number;
 };
 
-const API_BASE =
-  (import.meta.env.VITE_API_URL as string | undefined) ||
-  (typeof window !== "undefined" && window.location.port !== "8000" && window.location.port !== "80" && window.location.port !== "443" && window.location.port !== ""
-    ? `${window.location.protocol}//${window.location.hostname}:8000/api`
-    : "/api");
+const API_BASE = '/api';
 
 export async function fetchDokslis(): Promise<Doksli[]> {
   const res = await fetch(`${API_BASE}/dokslis`);
