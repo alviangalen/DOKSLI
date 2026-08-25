@@ -106,15 +106,44 @@ const QUICK_EMOJIS = [
   "💡", "🥳", "💀", "🗿", "🙏", "😍", "🎉", "😎"
 ];
 
+const GIF_CATEGORIES = [
+  { id: "all", label: "🔥 Trending" },
+  { id: "lucu", label: "😂 Lucu" },
+  { id: "reaksi", label: "😮 Reaksi" },
+  { id: "memes", label: "🗿 Memes" },
+  { id: "sedih", label: "😭 Sedih" },
+  { id: "love", label: "💖 Love" },
+  { id: "joget", label: "💃 Joget" },
+  { id: "syok", label: "😱 Syok" },
+  { id: "flex", label: "💪 Flex" },
+];
+
 const PRESET_GIFS = [
-  { name: "Cat Vibing", url: "https://media.giphy.com/media/jpbnoe3UIa8TU8LM13/giphy.gif" },
-  { name: "Mind Blown", url: "https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif" },
-  { name: "Popcorn", url: "https://media.giphy.com/media/hVTouUU06W9W0/giphy.gif" },
-  { name: "GigaChad", url: "https://media.giphy.com/media/CAYVZA5NRb529kKQUc/giphy.gif" },
-  { name: "Crying Laughing", url: "https://media.giphy.com/media/l3fQf1OEAq0iri9RC/giphy.gif" },
-  { name: "Doge", url: "https://media.giphy.com/media/10ECeyOOj6nyJU/giphy.gif" },
-  { name: "Pepe Hype", url: "https://media.giphy.com/media/3oKIPnAiaMCws8nOsE/giphy.gif" },
-  { name: "Dancing Parrot", url: "https://media.giphy.com/media/l41K3o5TzE71GFDEO/giphy.gif" },
+  { id: "cat-vibing", name: "Cat Vibing", category: "joget", url: "https://media.giphy.com/media/jpbnoe3UIa8TU8LM13/giphy.gif", tags: ["cat", "joget", "dance", "vibing", "kucing", "musik"] },
+  { id: "gigachad", name: "GigaChad", category: "flex", url: "https://media.giphy.com/media/CAYVZA5NRb529kKQUc/giphy.gif", tags: ["gigachad", "flex", "mewing", "chad", "ganteng", "sigma"] },
+  { id: "popcorn", name: "Popcorn", category: "reaksi", url: "https://media.giphy.com/media/hVTouUU06W9W0/giphy.gif", tags: ["popcorn", "nonton", "nyimak", "reaksi", "drama"] },
+  { id: "mind-blown", name: "Mind Blown", category: "syok", url: "https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif", tags: ["mindblown", "syok", "kaget", "explosion", "wow"] },
+  { id: "crying-laughing", name: "Ngakak", category: "lucu", url: "https://media.giphy.com/media/l3fQf1OEAq0iri9RC/giphy.gif", tags: ["ngakak", "lucu", "ketawa", "lol", "wkwk"] },
+  { id: "doge", name: "Doge", category: "memes", url: "https://media.giphy.com/media/10ECeyOOj6nyJU/giphy.gif", tags: ["doge", "anjing", "dog", "meme", "wow"] },
+  { id: "pepe-hype", name: "Pepe Hype", category: "memes", url: "https://media.giphy.com/media/3oKIPnAiaMCws8nOsE/giphy.gif", tags: ["pepe", "hype", "party", "joget", "frog"] },
+  { id: "dancing-parrot", name: "Dancing Parrot", category: "joget", url: "https://media.giphy.com/media/l41K3o5TzE71GFDEO/giphy.gif", tags: ["parrot", "burung", "joget", "dance", "party"] },
+  { id: "shocked-pikachu", name: "Shocked Pikachu", category: "syok", url: "https://media.giphy.com/media/6nWhy3njWyc0GPea97/giphy.gif", tags: ["pikachu", "pokemon", "syok", "kaget", "meme"] },
+  { id: "confused-travolta", name: "Confused", category: "reaksi", url: "https://media.giphy.com/media/g01ZnwAUvutuK8GIQn/giphy.gif", tags: ["confused", "bingung", "travolta", "pulp fiction", "mana"] },
+  { id: "facepalm", name: "Facepalm", category: "reaksi", url: "https://media.giphy.com/media/xsF1FSDbjguis/giphy.gif", tags: ["facepalm", "tepok jidat", "pasrah", "capek", "stres"] },
+  { id: "side-eye-cat", name: "Side Eye Cat", category: "reaksi", url: "https://media.giphy.com/media/CaiVJuGVvR8Pe/giphy.gif", tags: ["cat", "side eye", "curiga", "sinis", "kucing"] },
+  { id: "deal-with-it", name: "Deal With It", category: "flex", url: "https://media.giphy.com/media/xT0XzCJadP6iTndDYA/giphy.gif", tags: ["deal with it", "kacamata", "cool", "flex", "mantap"] },
+  { id: "laughing-leo", name: "Laughing Leo", category: "lucu", url: "https://media.giphy.com/media/O5Xp9qtdp4m9a/giphy.gif", tags: ["leo", "dicaprio", "ketawa", "cheers", "lucu"] },
+  { id: "everything-fine", name: "Fine Dog", category: "reaksi", url: "https://media.giphy.com/media/9M5jK4GXmD5o1irGrF/giphy.gif", tags: ["fine", "fire", "kebakaran", "anjing", "pasrah"] },
+  { id: "cat-heart", name: "Cat Heart Eyes", category: "love", url: "https://media.giphy.com/media/MDJ9IbxxvDUQM/giphy.gif", tags: ["love", "cat", "kucing", "cinta", "uwu", "cute"] },
+  { id: "sad-cat", name: "Sad Cat", category: "sedih", url: "https://media.giphy.com/media/L95W4wv8nnb9K/giphy.gif", tags: ["sad", "sedih", "nangis", "cat", "kucing"] },
+  { id: "emotional-damage", name: "Emotional Damage", category: "lucu", url: "https://media.giphy.com/media/ro08zs5GLJKlq/giphy.gif", tags: ["emotional damage", "sakit", "lucu", "steven he"] },
+  { id: "party-cat", name: "Party Hard", category: "joget", url: "https://media.giphy.com/media/artj92V8o75VPL7AeQ/giphy.gif", tags: ["party", "pesta", "cheering", "asik", "joget"] },
+  { id: "homer-bush", name: "Homer Hiding", category: "reaksi", url: "https://media.giphy.com/media/COYGe9rZvfiaQ/giphy.gif", tags: ["homer", "simpsons", "kabur", "sembunyi", "malu"] },
+  { id: "think-about-it", name: "Roll Safe", category: "memes", url: "https://media.giphy.com/media/d3mlE7uhX8KFgEmY/giphy.gif", tags: ["pikir", "think", "smart", "otak", "meme"] },
+  { id: "spongebob-imagination", name: "Imagination", category: "memes", url: "https://media.giphy.com/media/SKGo6OUPg5yCI/giphy.gif", tags: ["spongebob", "pelangi", "rainbow", "imagination"] },
+  { id: "cat-typing", name: "Cat Typing Fast", category: "lucu", url: "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif", tags: ["cat", "typing", "ngetik", "kucing", "sibuk"] },
+  { id: "mic-drop", name: "Mic Drop", category: "flex", url: "https://media.giphy.com/media/3o7qDSOvfaCO9b3MlO/giphy.gif", tags: ["mic drop", "flex", "selesai", "kelar", "obama"] },
+  { id: "disappointed-fan", name: "Disappointed", category: "sedih", url: "https://media.giphy.com/media/LSk5aGh2WYL6g/giphy.gif", tags: ["disappointed", "kecewa", "sedih", "bapak", "cricket"] }
 ];
 
 // ─── Component: Header ────────────────────────────────────────────────────────
@@ -539,6 +568,8 @@ function CommentForm({
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [customGifInput, setCustomGifInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [gifSearchTerm, setGifSearchTerm] = useState("");
+  const [gifActiveCategory, setGifActiveCategory] = useState("all");
 
   const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -702,32 +733,109 @@ function CommentForm({
         </div>
       )}
 
-      {/* GIF Picker Modal / Drawer */}
+      {/* GIF Picker Drawer (Instagram Style) */}
       {showGifPicker && (
-        <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-blue-100 dark:border-slate-800 rounded-lg space-y-2.5 animate-fade-in">
-          <p className="text-xs font-medium text-slate-700 dark:text-slate-300">Pilih GIF Reaksi:</p>
-          <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto pr-1">
-            {PRESET_GIFS.map((gif, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleSelectGif(gif.url)}
-                className="group relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 hover:border-blue-500 transition cursor-pointer"
-              >
-                <img src={gif.url} alt={gif.name} className="w-full h-16 object-cover" />
-                <span className="absolute bottom-0 left-0 right-0 bg-slate-900/70 text-[10px] text-white px-1 truncate text-center">
-                  {gif.name}
-                </span>
-              </button>
-            ))}
+        <div className="p-3.5 bg-slate-50 dark:bg-slate-950 border border-blue-100 dark:border-slate-800 rounded-2xl space-y-3 animate-fade-in transition-colors shadow-xs">
+          {/* Header & Search Bar */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder="Cari GIF (kucing, ngakak, joget, flex...)"
+                value={gifSearchTerm}
+                onChange={(e) => setGifSearchTerm(e.target.value)}
+                className="w-full pl-8 pr-7 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              />
+              <span className="absolute left-2.5 top-2 text-slate-400 text-xs">🔍</span>
+              {gifSearchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setGifSearchTerm("")}
+                  className="absolute right-2.5 top-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex gap-1.5 pt-1">
+
+          {/* Category Pills (Horizontal Scroll) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+            {GIF_CATEGORIES.map((cat) => {
+              const isActive = gifActiveCategory === cat.id && !gifSearchTerm;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    setGifActiveCategory(cat.id);
+                    setGifSearchTerm("");
+                  }}
+                  className={`px-3 py-1 rounded-full whitespace-nowrap font-medium transition-all cursor-pointer ${
+                    isActive
+                      ? "bg-blue-500 text-white shadow-2xs"
+                      : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-800"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* GIF Grid */}
+          {(() => {
+            const filteredGifs = PRESET_GIFS.filter((gif) => {
+              const matchesCategory =
+                gifActiveCategory === "all" || gif.category === gifActiveCategory;
+              const q = gifSearchTerm.trim().toLowerCase();
+              const matchesSearch =
+                !q ||
+                gif.name.toLowerCase().includes(q) ||
+                gif.tags.some((t) => t.toLowerCase().includes(q));
+              return matchesCategory && matchesSearch;
+            });
+
+            if (filteredGifs.length === 0) {
+              return (
+                <div className="py-6 text-center text-xs text-slate-400 dark:text-slate-500">
+                  Tidak ada GIF yang cocok dengan "{gifSearchTerm}"
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-52 overflow-y-auto pr-1">
+                {filteredGifs.map((gif) => (
+                  <button
+                    key={gif.id}
+                    type="button"
+                    onClick={() => handleSelectGif(gif.url)}
+                    className="group relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-200 hover:scale-[1.03] cursor-pointer shadow-2xs aspect-video bg-slate-200 dark:bg-slate-900"
+                  >
+                    <img
+                      src={gif.url}
+                      alt={gif.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 via-slate-950/40 to-transparent text-[10px] font-medium text-white px-1.5 py-1 truncate text-center opacity-90 group-hover:opacity-100 transition-opacity">
+                      {gif.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* Custom URL Input */}
+          <div className="flex gap-1.5 pt-1 border-t border-slate-200/60 dark:border-slate-800/80">
             <input
               type="url"
-              placeholder="Atau tempel URL GIF/Gambar..."
+              placeholder="Atau tempel URL GIF/Gambar eksternal..."
               value={customGifInput}
               onChange={(e) => setCustomGifInput(e.target.value)}
-              className="flex-1 px-2.5 py-1 border border-slate-300 dark:border-slate-700 rounded text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
+              className="flex-1 px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
             <button
               type="button"
@@ -737,9 +845,9 @@ function CommentForm({
                   setCustomGifInput("");
                 }
               }}
-              className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition cursor-pointer"
+              className="px-3.5 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-xl transition cursor-pointer"
             >
-              Pilih
+              Pakai
             </button>
           </div>
         </div>
