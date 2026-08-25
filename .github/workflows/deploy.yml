@@ -16,7 +16,6 @@ jobs:
     - name: Build dan Restart Docker
       run: |
         cd ${{ secrets.SERVER_PATH }}
-        
+        git pull origin main
         docker compose down
-        
         docker compose up -d --build
