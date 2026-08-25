@@ -25,14 +25,17 @@ function parseIsoDate(dateStr: string): Date {
   return new Date(normalized);
 }
 
-function formatDate(dateStr: string) {
+function formatDateTime(dateStr: string) {
   try {
     const d = parseIsoDate(dateStr);
-    return new Intl.DateTimeFormat("id-ID", {
+    const dateFormatted = new Intl.DateTimeFormat("id-ID", {
       day: "numeric",
       month: "short",
       year: "numeric",
     }).format(d);
+    const hours = String(d.getHours()).padStart(2, "0");
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    return `${dateFormatted}, ${hours}:${minutes}`;
   } catch {
     return dateStr;
   }
@@ -50,6 +53,17 @@ function timeAgo(dateStr: string) {
   } catch {
     return dateStr;
   }
+}
+
+function countTotalComments(comments: Comment[] = []): number {
+  let count = 0;
+  for (const c of comments) {
+    count += 1;
+    if (c.replies && c.replies.length > 0) {
+      count += countTotalComments(c.replies);
+    }
+  }
+  return count;
 }
 
 function formatSize(bytes: number) {
@@ -88,6 +102,22 @@ function getShareUrl(doksliId: string) {
 
 type Page = "home" | "create" | "detail";
 
+const QUICK_EMOJIS = [
+  "😀", "😂", "🔥", "❤️", "👍", "💩", "🤡", "🚀",
+  "💡", "🥳", "💀", "🗿", "🙏", "😍", "🎉", "😎"
+];
+
+const PRESET_GIFS = [
+  { name: "Cat Vibing", url: "https://media.giphy.com/media/jpbnoe3UIa8TU8LM13/giphy.gif" },
+  { name: "Mind Blown", url: "https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif" },
+  { name: "Popcorn", url: "https://media.giphy.com/media/hVTouUU06W9W0/giphy.gif" },
+  { name: "GigaChad", url: "https://media.giphy.com/media/CAYVZA5NRb529kKQUc/giphy.gif" },
+  { name: "Crying Laughing", url: "https://media.giphy.com/media/l3fQf1OEAq0iri9RC/giphy.gif" },
+  { name: "Doge", url: "https://media.giphy.com/media/10ECeyOOj6nyJU/giphy.gif" },
+  { name: "Pepe Hype", url: "https://media.giphy.com/media/3oKIPnAiaMCws8nOsE/giphy.gif" },
+  { name: "Dancing Parrot", url: "https://media.giphy.com/media/l41K3o5TzE71GFDEO/giphy.gif" },
+];
+
 // ─── Component: Header ────────────────────────────────────────────────────────
 
 function Header({
@@ -113,7 +143,6 @@ function Header({
         </button>
 
         <div className="flex items-center gap-2.5">
-          {/* Dark / Light Mode Switch Button */}
           <button
             onClick={onToggleTheme}
             type="button"
@@ -122,12 +151,10 @@ function Header({
             title={darkMode ? "Mode Terang" : "Mode Gelap"}
           >
             {darkMode ? (
-              // Sun icon (for dark mode -> switch to light)
               <svg className="w-4.5 h-4.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
             ) : (
-              // Moon icon (for light mode -> switch to dark)
               <svg className="w-4.5 h-4.5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
               </svg>
@@ -267,7 +294,6 @@ function HomePage({
                       {d.files_count ?? d.files?.length ?? 0} file
                     </span>
 
-                    {/* Quick share button on card */}
                     <button
                       onClick={(e) => handleShareClick(d, e)}
                       type="button"
@@ -298,10 +324,10 @@ function HomePage({
               </div>
 
               <div className="pt-3 border-t border-slate-50 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
-                <span>{formatDate(d.created_at)}</span>
+                <span>{formatDateTime(d.created_at)}</span>
                 <div className="flex items-center gap-3">
                   <span>dilihat: {d.view_count}</span>
-                  <span>komentar: {d.comments_count ?? d.comments?.length ?? 0}</span>
+                  <span>komentar: {d.comments_count ?? countTotalComments(d.comments)}</span>
                 </div>
               </div>
             </div>
@@ -469,7 +495,7 @@ function CreatePage({
           >
             {submitting ? (
               <>
-                <span className="animate-spin"></span>
+                <span className="animate-spin">⏳</span>
                 <span>Mengupload...</span>
               </>
             ) : (
@@ -479,6 +505,340 @@ function CreatePage({
         </div>
       </form>
     </main>
+  );
+}
+
+// ─── Component: CommentForm ───────────────────────────────────────────────────
+
+function CommentForm({
+  placeholder = "Tulis komentar (anonim)...",
+  parentId = null,
+  onSubmit,
+  onCancel,
+}: {
+  placeholder?: string;
+  parentId?: string | null;
+  onSubmit: (
+    text?: string,
+    parentId?: string | null,
+    imageFile?: File | null,
+    imageUrl?: string | null
+  ) => Promise<void>;
+  onCancel?: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [customGifInput, setCustomGifInput] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      setSelectedImageUrl(null);
+      setFilePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveAttachment = () => {
+    setSelectedFile(null);
+    setSelectedImageUrl(null);
+    if (filePreview) {
+      URL.revokeObjectURL(filePreview);
+      setFilePreview(null);
+    }
+  };
+
+  const handleInsertEmoji = (emoji: string) => {
+    setText((prev) => prev + emoji);
+  };
+
+  const handleSelectGif = (url: string) => {
+    setSelectedImageUrl(url);
+    setSelectedFile(null);
+    setFilePreview(null);
+    setShowGifPicker(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!text.trim() && !selectedFile && !selectedImageUrl) return;
+
+    setSubmitting(true);
+    try {
+      await onSubmit(text.trim(), parentId, selectedFile, selectedImageUrl);
+      setText("");
+      handleRemoveAttachment();
+      setShowEmojiPicker(false);
+      setShowGifPicker(false);
+      if (onCancel) onCancel();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3 bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 p-4 rounded-xl shadow-xs transition-colors">
+      <div className="relative">
+        <textarea
+          rows={2}
+          placeholder={placeholder}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="w-full px-3 py-2 border border-blue-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-500 transition resize-none"
+        />
+      </div>
+
+      {/* Attachment Preview */}
+      {(filePreview || selectedImageUrl) && (
+        <div className="relative inline-block border border-blue-200 dark:border-slate-700 rounded-lg p-1 bg-slate-50 dark:bg-slate-950">
+          <img
+            src={filePreview || selectedImageUrl || ""}
+            alt="Lampiran komentar"
+            className="max-h-32 max-w-full rounded-md object-contain"
+          />
+          <button
+            type="button"
+            onClick={handleRemoveAttachment}
+            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-md hover:bg-red-600 cursor-pointer"
+            title="Hapus lampiran"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Toolbar & Action Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800/80 pt-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Emoji toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowEmojiPicker(!showEmojiPicker);
+              setShowGifPicker(false);
+            }}
+            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-blue-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-100 dark:hover:bg-slate-700 transition flex items-center gap-1 cursor-pointer"
+          >
+            <span>😀</span>
+            <span>Emoji</span>
+          </button>
+
+          {/* Image upload button */}
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => imageInputRef.current?.click()}
+            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-blue-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-100 dark:hover:bg-slate-700 transition flex items-center gap-1 cursor-pointer"
+          >
+            <span>📷</span>
+            <span>Gambar/GIF</span>
+          </button>
+
+          {/* Preset GIF picker button */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowGifPicker(!showGifPicker);
+              setShowEmojiPicker(false);
+            }}
+            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-blue-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-100 dark:hover:bg-slate-700 transition flex items-center gap-1 cursor-pointer"
+          >
+            <span>🎬</span>
+            <span>GIF Presets</span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition cursor-pointer"
+            >
+              Batal
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={submitting || (!text.trim() && !selectedFile && !selectedImageUrl)}
+            className="px-4 py-1.5 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 disabled:bg-blue-200 dark:disabled:bg-slate-800 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg transition shadow-2xs cursor-pointer flex items-center gap-1.5"
+          >
+            {submitting ? "Mengirim..." : parentId ? "Kirim Balasan" : "Kirim Komentar"}
+          </button>
+        </div>
+      </div>
+
+      {/* Emoji Picker Bar */}
+      {showEmojiPicker && (
+        <div className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-blue-100 dark:border-slate-800 rounded-lg grid grid-cols-8 gap-1.5 text-lg animate-fade-in">
+          {QUICK_EMOJIS.map((emoji, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => handleInsertEmoji(emoji)}
+              className="hover:bg-white dark:hover:bg-slate-800 rounded p-1 text-center transition cursor-pointer"
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* GIF Picker Modal / Drawer */}
+      {showGifPicker && (
+        <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-blue-100 dark:border-slate-800 rounded-lg space-y-2.5 animate-fade-in">
+          <p className="text-xs font-medium text-slate-700 dark:text-slate-300">Pilih GIF Reaksi:</p>
+          <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto pr-1">
+            {PRESET_GIFS.map((gif, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleSelectGif(gif.url)}
+                className="group relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 hover:border-blue-500 transition cursor-pointer"
+              >
+                <img src={gif.url} alt={gif.name} className="w-full h-16 object-cover" />
+                <span className="absolute bottom-0 left-0 right-0 bg-slate-900/70 text-[10px] text-white px-1 truncate text-center">
+                  {gif.name}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1.5 pt-1">
+            <input
+              type="url"
+              placeholder="Atau tempel URL GIF/Gambar..."
+              value={customGifInput}
+              onChange={(e) => setCustomGifInput(e.target.value)}
+              className="flex-1 px-2.5 py-1 border border-slate-300 dark:border-slate-700 rounded text-xs bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (customGifInput.trim()) {
+                  handleSelectGif(customGifInput.trim());
+                  setCustomGifInput("");
+                }
+              }}
+              className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition cursor-pointer"
+            >
+              Pilih
+            </button>
+          </div>
+        </div>
+      )}
+    </form>
+  );
+}
+
+// ─── Component: CommentItem ───────────────────────────────────────────────────
+
+function CommentItem({
+  comment,
+  doksliId,
+  onAddComment,
+  onPreviewImage,
+}: {
+  comment: Comment;
+  doksliId: string;
+  onAddComment: (
+    doksliId: string,
+    text?: string,
+    parentId?: string | null,
+    imageFile?: File | null,
+    imageUrl?: string | null
+  ) => Promise<void>;
+  onPreviewImage: (url: string) => void;
+}) {
+  const [showReplyForm, setShowReplyForm] = useState(false);
+
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-xl p-4 transition-colors shadow-2xs">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 font-semibold text-xs flex items-center justify-center">
+            A
+          </div>
+          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">Anonim</span>
+        </div>
+        <div className="flex items-center gap-2 text-[11px] text-slate-400 dark:text-slate-500">
+          <span>{timeAgo(comment.posted_at)}</span>
+          <span>·</span>
+          <span>{formatDateTime(comment.posted_at)}</span>
+        </div>
+      </div>
+
+      {comment.comment_text && (
+        <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
+          {comment.comment_text}
+        </p>
+      )}
+
+      {comment.image_url && (
+        <div className="mt-2">
+          <img
+            src={comment.image_url}
+            alt="Lampiran Komentar"
+            onClick={() => onPreviewImage(comment.image_url!)}
+            className="max-w-xs max-h-60 rounded-xl object-cover border border-slate-200 dark:border-slate-800 cursor-pointer hover:opacity-90 transition shadow-2xs"
+          />
+        </div>
+      )}
+
+      <div className="mt-2.5 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setShowReplyForm(!showReplyForm)}
+          className="flex items-center gap-1 text-xs font-medium text-blue-500 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 transition cursor-pointer"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+          </svg>
+          <span>{showReplyForm ? "Batal Balas" : "Balas"}</span>
+        </button>
+      </div>
+
+      {showReplyForm && (
+        <div className="mt-3">
+          <CommentForm
+            placeholder="Tulis balasan..."
+            parentId={comment.id}
+            onSubmit={async (t, pId, f, url) => {
+              await onAddComment(doksliId, t, pId, f, url);
+              setShowReplyForm(false);
+            }}
+            onCancel={() => setShowReplyForm(false)}
+          />
+        </div>
+      )}
+
+      {/* Nested Replies */}
+      {comment.replies && comment.replies.length > 0 && (
+        <div className="border-l-2 border-blue-200 dark:border-slate-800 pl-3 sm:pl-4 mt-3 space-y-3">
+          {comment.replies.map((reply) => (
+            <CommentItem
+              key={reply.id}
+              comment={reply}
+              doksliId={doksliId}
+              onAddComment={onAddComment}
+              onPreviewImage={onPreviewImage}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -492,31 +852,25 @@ function DetailPage({
 }: {
   doksli: Doksli;
   onBack: () => void;
-  onAddComment: (doksliId: string, text: string) => Promise<void>;
+  onAddComment: (
+    doksliId: string,
+    text?: string,
+    parentId?: string | null,
+    imageFile?: File | null,
+    imageUrl?: string | null
+  ) => Promise<void>;
   onShareDoksli: (doksli: Doksli, e: React.MouseEvent) => void;
 }) {
-  const [comment, setComment] = useState("");
-  const [submittingComment, setSubmittingComment] = useState(false);
   const [previewFile, setPreviewFile] = useState<FileEntry | null>(null);
+  const [previewCommentImage, setPreviewCommentImage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const totalComments = countTotalComments(doksli.comments);
 
   const handleShare = (e: React.MouseEvent) => {
     onShareDoksli(doksli, e);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
-  };
-
-  const handleComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!comment.trim()) return;
-
-    setSubmittingComment(true);
-    try {
-      await onAddComment(doksli.id, comment.trim());
-      setComment("");
-    } finally {
-      setSubmittingComment(false);
-    }
   };
 
   return (
@@ -531,7 +885,6 @@ function DetailPage({
           <span>Kembali ke Beranda</span>
         </button>
 
-        {/* Share Button in Top Bar */}
         <button
           onClick={handleShare}
           type="button"
@@ -587,7 +940,7 @@ function DetailPage({
         )}
 
         <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 dark:text-slate-500 pt-3 border-t border-slate-100 dark:border-slate-800">
-          <span>Diupload {formatDate(doksli.created_at)}</span>
+          <span>Diupload {formatDateTime(doksli.created_at)}</span>
           <span>·</span>
           <span>👁️ {doksli.view_count} dilihat</span>
           <span>·</span>
@@ -652,7 +1005,7 @@ function DetailPage({
         )}
       </section>
 
-      {/* Image preview modal */}
+      {/* Image preview modal for uploaded doksli file */}
       {previewFile && (
         <div
           className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4"
@@ -679,29 +1032,42 @@ function DetailPage({
         </div>
       )}
 
-      {/* Comments */}
+      {/* Image preview modal for comment attachment */}
+      {previewCommentImage && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setPreviewCommentImage(null)}
+        >
+          <div className="relative max-w-3xl max-h-[85vh] w-full" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={previewCommentImage}
+              alt="Preview Komentar"
+              className="w-full h-full object-contain rounded-xl"
+            />
+            <button
+              onClick={() => setPreviewCommentImage(null)}
+              className="absolute top-3 right-3 w-8 h-8 bg-slate-900/80 dark:bg-slate-800/90 text-white rounded-full flex items-center justify-center hover:bg-slate-900 transition-colors cursor-pointer"
+              aria-label="Tutup"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Comments Section */}
       <section>
         <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-          Komentar ({doksli.comments?.length ?? 0})
+          Komentar ({totalComments})
         </h2>
 
-        {/* Comment form */}
-        <form onSubmit={handleComment} className="flex gap-2 mb-4">
-          <input
-            type="text"
+        {/* Primary Comment form */}
+        <div className="mb-6">
+          <CommentForm
             placeholder="Tulis komentar (anonim)..."
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            className="flex-1 px-3 py-2 border border-blue-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-500 focus:border-blue-400 dark:focus:border-blue-500 transition"
+            onSubmit={(text, pId, img, url) => onAddComment(doksli.id, text, pId, img, url)}
           />
-          <button
-            type="submit"
-            disabled={submittingComment || !comment.trim()}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 disabled:bg-blue-200 dark:disabled:bg-slate-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors cursor-pointer"
-          >
-            Kirim
-          </button>
-        </form>
+        </div>
 
         {/* Comment list */}
         {(!doksli.comments || doksli.comments.length === 0) ? (
@@ -709,15 +1075,15 @@ function DetailPage({
             <p className="text-sm">Belum ada komentar. Jadilah yang pertama!</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             {doksli.comments.map((c) => (
-              <div key={c.id} className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-xl px-4 py-3 transition-colors">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-blue-500 dark:text-blue-400">Anonim</span>
-                  <span className="text-xs text-slate-400 dark:text-slate-500">{timeAgo(c.posted_at)}</span>
-                </div>
-                <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">{c.comment_text}</p>
-              </div>
+              <CommentItem
+                key={c.id}
+                comment={c}
+                doksliId={doksli.id}
+                onAddComment={onAddComment}
+                onPreviewImage={(url) => setPreviewCommentImage(url)}
+              />
             ))}
           </div>
         )}
@@ -752,7 +1118,6 @@ export default function App() {
   const [activeDoksli, setActiveDoksli] = useState<Doksli | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Dark Mode state with persistence in localStorage and system fallback
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("doksli-theme");
@@ -815,7 +1180,6 @@ export default function App() {
     }
   }, []);
 
-  // Handle direct URL sharing on load (e.g. ?doksli=UUID or ?id=UUID)
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
@@ -826,7 +1190,6 @@ export default function App() {
         loadData();
       }
 
-      // Listen to popstate (browser back/forward buttons)
       const handlePopState = () => {
         const currentParams = new URLSearchParams(window.location.search);
         const currentId = currentParams.get("doksli") || currentParams.get("id");
@@ -869,11 +1232,17 @@ export default function App() {
     setToastMessage("Doksli berhasil dibuat! Link siap dibagikan.");
   };
 
-  const handleAddComment = async (doksliId: string, text: string) => {
-    const newComment = await addDoksliComment(doksliId, text);
-    setActiveDoksli((prev) =>
-      prev ? { ...prev, comments: [newComment, ...(prev.comments || [])] } : null
-    );
+  const handleAddComment = async (
+    doksliId: string,
+    text?: string,
+    parentId?: string | null,
+    imageFile?: File | null,
+    imageUrl?: string | null
+  ) => {
+    await addDoksliComment(doksliId, text, parentId, imageFile, imageUrl);
+    const updated = await fetchDoksli(doksliId);
+    setActiveDoksli(updated);
+    await loadData();
   };
 
   const handleShareDoksli = async (doksli: Doksli, e: React.MouseEvent) => {
@@ -889,7 +1258,7 @@ export default function App() {
         });
         return;
       } catch {
-        // Fallback to clipboard if user cancels or share fails
+        // Fallback
       }
     }
 
@@ -897,7 +1266,6 @@ export default function App() {
       await navigator.clipboard.writeText(shareUrl);
       setToastMessage("Tautan Doksli berhasil disalin ke clipboard!");
     } catch {
-      // Fallback prompt if clipboard access fails
       prompt("Salin tautan ini:", shareUrl);
     }
   };

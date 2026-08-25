@@ -8,8 +8,12 @@ export type FileEntry = {
 
 export type Comment = {
   id: string;
-  comment_text: string;
+  doksli_id: string;
+  parent_id?: string | null;
+  comment_text?: string | null;
+  image_url?: string | null;
   posted_at: string;
+  replies?: Comment[];
 };
 
 export type Doksli = {
@@ -79,14 +83,28 @@ export async function incrementDoksliView(id: string): Promise<number> {
   }
 }
 
-export async function addDoksliComment(id: string, text: string): Promise<Comment> {
+export async function addDoksliComment(
+  id: string,
+  text?: string,
+  parentId?: string | null,
+  imageFile?: File | null,
+  imageUrl?: string | null
+): Promise<Comment> {
+  const formData = new FormData();
+  if (text) formData.append('text', text);
+  if (parentId) formData.append('parent_id', parentId);
+  if (imageFile) formData.append('image', imageFile);
+  if (imageUrl) formData.append('image_url', imageUrl);
+
   const res = await fetch(`${API_BASE}/dokslis/${id}/comments`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
+    body: formData,
   });
 
-  if (!res.ok) throw new Error('Gagal menambahkan komentar');
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    throw new Error(errorJson.message || 'Gagal menambahkan komentar');
+  }
   const json = await res.json();
   return json.data;
 }

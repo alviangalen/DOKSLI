@@ -16,7 +16,7 @@ class DoksliController extends Controller
 {
     public function index(): JsonResponse
     {
-        $dokslis = Doksli::withCount(['files', 'comments'])
+        $dokslis = Doksli::withCount(['files', 'allComments as comments_count'])
             ->with(['files' => function ($query) {
                 $query->select('id', 'doksli_id', 'original_name', 'mime_type', 'file_size', 'created_at');
             }])
@@ -110,22 +110,70 @@ class DoksliController extends Controller
         $doksli = Doksli::findOrFail($id);
 
         $validated = $request->validate([
-            'text' => 'required|string|max:2000',
+            'text' => 'nullable|string|max:2000',
+            'parent_id' => 'nullable|uuid|exists:comments,id',
+            'image' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp|max:10240',
+            'image_url' => 'nullable|url|max:2048',
         ]);
 
-        $sanitizedText = htmlspecialchars(strip_tags($validated['text']), ENT_QUOTES, 'UTF-8');
+        if (empty($validated['text']) && !$request->hasFile('image') && empty($validated['image_url'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Komentar tidak boleh kosong (masukkan teks, gambar, atau GIF).',
+            ], 422);
+        }
+
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $extension = strtolower($file->getClientOriginalExtension());
+            $storedName = (string) Str::uuid() . ($extension ? '.' . $extension : '');
+            $imagePath = $file->storeAs('comment_images', $storedName, 'mnt_storage');
+        } elseif (!empty($validated['image_url'])) {
+            $imagePath = $validated['image_url'];
+        }
+
+        $sanitizedText = isset($validated['text']) && trim($validated['text']) !== ''
+            ? htmlspecialchars(strip_tags($validated['text']), ENT_QUOTES, 'UTF-8')
+            : null;
 
         $comment = Comment::create([
             'doksli_id' => $doksli->id,
+            'parent_id' => $validated['parent_id'] ?? null,
             'comment_text' => $sanitizedText,
+            'image_path' => $imagePath,
             'posted_at' => now(),
             'ip_address' => hash('sha256', $request->ip() ?? ''),
         ]);
+
+        $comment->load('replies');
 
         return response()->json([
             'status' => 'success',
             'data' => $comment,
         ], 201);
+    }
+
+    public function serveCommentImage(string $filename): BinaryFileResponse|JsonResponse
+    {
+        $disk = Storage::disk('mnt_storage');
+        $cleanName = basename($filename);
+        $path = 'comment_images/' . $cleanName;
+
+        if (!$disk->exists($path)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gambar komentar tidak ditemukan.',
+            ], 404);
+        }
+
+        $fullPath = $disk->path($path);
+        $mimeType = @mime_content_type($fullPath) ?: 'image/jpeg';
+
+        return response()->file($fullPath, [
+            'Content-Type' => $mimeType,
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
     }
 
     public function serveFile(string $id): BinaryFileResponse|JsonResponse
