@@ -18,5 +18,6 @@ jobs:
         cd ${{ secrets.SERVER_PATH }}
         git config --global --add safe.directory '*'
         git pull origin main
+        git lfs pull || true
         docker compose down
         docker compose up -d --build
