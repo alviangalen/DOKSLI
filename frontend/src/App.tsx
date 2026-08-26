@@ -1,15 +1,24 @@
-import logoDoksli from "./img/logo/logo-doksli.png";
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import logoDoksli from "./img/logo/logo-doksli.png";
 import {
   Doksli,
-  FileEntry,
   Comment,
+  AdminStats,
+  AdminUser,
   fetchDokslis,
   fetchDoksli,
   createDoksli,
   incrementDoksliView,
   addDoksliComment,
   getFileViewUrl,
+  getAdminToken,
+  adminLogin,
+  adminCheckAuth,
+  adminGetStats,
+  adminGetDokslis,
+  adminDeleteDoksli,
+  adminChangePassword,
+  adminLogout,
 } from "./api/doksliApi";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -69,7 +78,8 @@ function countTotalComments(comments: Comment[] = []): number {
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 function fileIcon(type: string) {
@@ -103,7 +113,7 @@ function getShareUrl(doksliId: string) {
   return `/?doksli=${doksliId}`;
 }
 
-type Page = "home" | "detail" | "create";
+type Page = "home" | "detail" | "create" | "admin";
 
 // ─── Emojis & Working GIF Presets ──────────────────────────────────────────
 
@@ -221,7 +231,7 @@ function MediaLightboxModal({
           </div>
         </div>
 
-        {/* Media Container with full scroll support for tall images */}
+        {/* Media Container */}
         <div className="flex-1 overflow-y-auto overflow-x-auto p-4 flex items-center justify-center bg-slate-950/80 min-h-[300px] max-h-[82vh]">
           {isImage ? (
             <img
@@ -266,11 +276,13 @@ function MediaLightboxModal({
 function Header({
   onHome,
   onCreate,
+  onAdmin,
   darkMode,
   onToggleTheme,
 }: {
   onHome: () => void;
   onCreate: () => void;
+  onAdmin?: () => void;
   darkMode: boolean;
   onToggleTheme: () => void;
 }) {
@@ -295,6 +307,16 @@ function Header({
         </button>
 
         <div className="flex items-center gap-2">
+          {onAdmin && (
+            <button
+              onClick={onAdmin}
+              className="p-2 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer text-xs"
+              title="Akses Panel Admin (/admin)"
+            >
+              🛡️
+            </button>
+          )}
+
           <button
             onClick={onToggleTheme}
             className="p-2 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-blue-50/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
@@ -478,7 +500,7 @@ function HomePage({
   );
 }
 
-// ─── Component: CreatePage (with Drag & Drop + Rich Previews) ─────────────────
+// ─── Component: CreatePage ────────────────────────────────────────────────────
 
 type SelectedFileWithPreview = {
   file: File;
@@ -503,7 +525,6 @@ function CreatePage({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Add files to preview list
   const addFiles = useCallback((files: File[]) => {
     if (!files.length) return;
     const newItems: SelectedFileWithPreview[] = files.map((file) => ({
@@ -514,7 +535,6 @@ function CreatePage({
     setSelectedFileList((prev) => [...prev, ...newItems]);
   }, []);
 
-  // Cleanup object URLs on unmount
   useEffect(() => {
     return () => {
       selectedFileList.forEach((item) => {
@@ -646,7 +666,6 @@ function CreatePage({
             className="hidden"
           />
 
-          {/* Dropzone */}
           <div
             onClick={() => fileInputRef.current?.click()}
             onDragOver={handleDragOver}
@@ -663,11 +682,10 @@ function CreatePage({
               {isDragging ? "Lepaskan file di sini!" : "Klik atau seret file ke sini"}
             </p>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-              Mendukung Gambar (PNG, JPG, GIF, WebP), Video, Audio, PDF, Dokumen (Maks 100MB/file)
+              Mendukung Gambar, Video, Audio, PDF, Dokumen (Maks 100MB/file)
             </p>
           </div>
 
-          {/* Visual Previews Grid */}
           {selectedFileList.length > 0 && (
             <div className="mt-4 space-y-2">
               <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -680,7 +698,6 @@ function CreatePage({
                     key={item.id}
                     className="relative group bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 flex items-center gap-3 shadow-2xs hover:border-blue-300 dark:hover:border-blue-500 transition-all"
                   >
-                    {/* Thumbnail Image or Icon */}
                     {item.previewUrl ? (
                       <div
                         onClick={() => setModalPreviewFile(item)}
@@ -702,7 +719,6 @@ function CreatePage({
                       </div>
                     )}
 
-                    {/* Meta info */}
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate" title={item.file.name}>
                         {item.file.name}
@@ -716,7 +732,6 @@ function CreatePage({
                       </div>
                     </div>
 
-                    {/* Remove button */}
                     <button
                       type="button"
                       onClick={() => removeFile(item.id)}
@@ -729,7 +744,6 @@ function CreatePage({
                 ))}
               </div>
 
-              {/* Add more button */}
               <div className="pt-1 flex justify-end">
                 <button
                   type="button"
@@ -768,7 +782,6 @@ function CreatePage({
         </div>
       </form>
 
-      {/* Modal Preview for Single Selected File in Upload Form */}
       {modalPreviewFile && modalPreviewFile.previewUrl && (
         <MediaLightboxModal
           title={modalPreviewFile.file.name}
@@ -782,7 +795,7 @@ function CreatePage({
   );
 }
 
-// ─── Component: CommentForm (with working GIF & Image support) ─────────────────
+// ─── Component: CommentForm ───────────────────────────────────────────────────
 
 function CommentForm({
   placeholder = "Tulis komentar (anonim)...",
@@ -877,7 +890,6 @@ function CommentForm({
           className="w-full px-4 pt-3 pb-2 bg-transparent text-xs sm:text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none resize-none"
         />
 
-        {/* Attachment preview banner */}
         {(selectedFile || selectedImageUrl) && (
           <div className="px-4 pb-2 flex items-center gap-2">
             <div className="relative inline-block rounded-xl overflow-hidden border border-blue-200 dark:border-slate-700 bg-blue-50 dark:bg-slate-800 p-1">
@@ -906,10 +918,8 @@ function CommentForm({
           </div>
         )}
 
-        {/* Action bar inside comment box */}
         <div className="flex items-center justify-between px-3 py-2 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/30 rounded-b-2xl">
           <div className="flex items-center gap-1">
-            {/* Hidden image file input */}
             <input
               ref={fileInputRef}
               type="file"
@@ -918,7 +928,6 @@ function CommentForm({
               className="hidden"
             />
 
-            {/* Upload image button */}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -929,7 +938,6 @@ function CommentForm({
               <span className="hidden sm:inline text-[11px]">Upload</span>
             </button>
 
-            {/* Preset GIF picker button */}
             <button
               type="button"
               onClick={() => {
@@ -947,7 +955,6 @@ function CommentForm({
               <span className="text-[11px]">GIF</span>
             </button>
 
-            {/* Emoji picker toggle */}
             <button
               type="button"
               onClick={() => {
@@ -994,7 +1001,6 @@ function CommentForm({
         </div>
       </div>
 
-      {/* Quick Emoji Picker Drawer */}
       {showEmojiPicker && (
         <div className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-md flex flex-wrap gap-1.5 animate-fade-in">
           {QUICK_EMOJIS.map((emoji) => (
@@ -1010,10 +1016,8 @@ function CommentForm({
         </div>
       )}
 
-      {/* GIF Picker Drawer */}
       {showGifPicker && (
         <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl space-y-3 animate-fade-in">
-          {/* Search Bar */}
           <div className="relative">
             <input
               type="text"
@@ -1034,7 +1038,6 @@ function CommentForm({
             )}
           </div>
 
-          {/* Category Tabs */}
           <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar">
             {GIF_CATEGORIES.map((cat) => {
               const isActive = gifActiveCategory === cat.id && !gifSearchTerm;
@@ -1058,7 +1061,6 @@ function CommentForm({
             })}
           </div>
 
-          {/* GIF Grid */}
           {(() => {
             const filteredGifs = PRESET_GIFS.filter((gif) => {
               const matchesCategory =
@@ -1103,7 +1105,6 @@ function CommentForm({
             );
           })()}
 
-          {/* Custom URL Input */}
           <div className="flex gap-1.5 pt-1 border-t border-slate-200/60 dark:border-slate-800/80">
             <input
               type="url"
@@ -1188,7 +1189,6 @@ function CommentItem({
         </div>
       )}
 
-      {/* Reply toggle button */}
       <div className="pt-1 flex items-center gap-3">
         <button
           type="button"
@@ -1200,7 +1200,6 @@ function CommentItem({
         </button>
       </div>
 
-      {/* Nested Reply form */}
       {showReplyForm && (
         <div className="pt-2 pl-3 border-l-2 border-blue-200 dark:border-blue-900/60">
           <CommentForm
@@ -1215,7 +1214,6 @@ function CommentItem({
         </div>
       )}
 
-      {/* Recursive nested replies */}
       {comment.replies && comment.replies.length > 0 && (
         <div className="pt-2 pl-3 sm:pl-4 border-l-2 border-slate-100 dark:border-slate-800 space-y-2 mt-2">
           {comment.replies.map((reply) => (
@@ -1271,7 +1269,6 @@ function DetailPage({
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-8">
-      {/* Back button */}
       <button
         onClick={onBack}
         className="mb-4 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1.5 cursor-pointer"
@@ -1280,7 +1277,6 @@ function DetailPage({
         <span>Kembali ke Beranda</span>
       </button>
 
-      {/* Doksli Main Card */}
       <div className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-2xl p-6 shadow-xs mb-6 transition-colors">
         <div className="flex items-start justify-between gap-4 mb-3">
           <h1
@@ -1381,7 +1377,6 @@ function DetailPage({
         )}
       </section>
 
-      {/* Lightbox Modal (Fixed complete full-height view) */}
       {lightboxData && (
         <MediaLightboxModal
           title={lightboxData.title}
@@ -1398,7 +1393,6 @@ function DetailPage({
           Komentar ({totalComments})
         </h2>
 
-        {/* Primary Comment form */}
         <div className="mb-6">
           <CommentForm
             placeholder="Tulis komentar atau reaksi (anonim)..."
@@ -1406,7 +1400,6 @@ function DetailPage({
           />
         </div>
 
-        {/* Comment list */}
         {(!doksli.comments || doksli.comments.length === 0) ? (
           <div className="text-center py-8 text-slate-400 dark:text-slate-500 border border-dashed border-blue-100 dark:border-slate-800 rounded-xl transition-colors">
             <p className="text-sm">Belum ada komentar. Jadilah yang pertama!</p>
@@ -1431,6 +1424,558 @@ function DetailPage({
           </div>
         )}
       </section>
+    </main>
+  );
+}
+
+// ─── Component: Admin Panel ───────────────────────────────────────────────────
+
+function ChangePasswordModal({
+  onClose,
+  onSuccess,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPassword || !newPassword) return;
+
+    if (newPassword.length < 8) {
+      setErrorMsg("Password baru minimal 8 karakter.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setErrorMsg("Konfirmasi password baru tidak cocok.");
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      await adminChangePassword(currentPassword, newPassword);
+      onSuccess();
+    } catch (err: any) {
+      setErrorMsg(err.message || "Gagal mengubah password.");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+            <span>🔑</span>
+            <span>Ganti Password Admin</span>
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-200 text-sm cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        {errorMsg && (
+          <div className="p-3 bg-red-950/50 border border-red-800 text-red-400 text-xs rounded-xl">
+            {errorMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Password Saat Ini <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="password"
+              required
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="w-full px-3.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Masukkan password admin sekarang"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Password Baru <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="password"
+              required
+              minLength={8}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full px-3.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Minimal 8 karakter"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Konfirmasi Password Baru <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="password"
+              required
+              minLength={8}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full px-3.5 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ketik ulang password baru"
+            />
+          </div>
+
+          <div className="pt-2 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-slate-200 border border-slate-800 rounded-xl hover:bg-slate-800 transition cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white text-xs font-semibold rounded-xl transition cursor-pointer flex items-center gap-1.5"
+            >
+              {loading ? (
+                <>
+                  <span className="animate-spin text-xs">⏳</span>
+                  <span>Menyimpan...</span>
+                </>
+              ) : (
+                <span>Simpan Password Baru</span>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function AdminLoginView({
+  onLoginSuccess,
+  onGoHome,
+}: {
+  onLoginSuccess: (user: AdminUser) => void;
+  onGoHome: () => void;
+}) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password) return;
+
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      await adminLogin(username.trim(), password);
+      const user = await adminCheckAuth();
+      onLoginSuccess(user);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Username atau password admin salah.");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <main className="min-h-[80vh] flex items-center justify-center px-4 py-12">
+      <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-xl space-y-6">
+        <div className="text-center space-y-2">
+          <div className="w-12 h-12 bg-blue-500/10 border border-blue-500/20 rounded-2xl mx-auto flex items-center justify-center text-2xl shadow-inner">
+            🛡️
+          </div>
+          <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+            Admin Panel DOKSLI
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Masuk untuk memoderasi konten dan mengelola penyimpanan
+          </p>
+        </div>
+
+        {errorMsg && (
+          <div className="p-3.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Username Admin
+            </label>
+            <input
+              type="text"
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Username admin"
+              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Password
+            </label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-300 dark:disabled:bg-slate-800 text-white font-semibold text-xs rounded-xl shadow-md transition cursor-pointer flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <span className="animate-spin text-xs">⏳</span>
+                <span>Memeriksa Kredensial...</span>
+              </>
+            ) : (
+              <span>Masuk ke Panel Admin</span>
+            )}
+          </button>
+        </form>
+
+        <div className="pt-2 text-center border-t border-slate-100 dark:border-slate-800">
+          <button
+            onClick={onGoHome}
+            className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition cursor-pointer"
+          >
+            ← Kembali ke Halaman Utama
+          </button>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function AdminDashboardView({
+  adminUser,
+  onLogout,
+  onGoHome,
+  onOpenDoksli,
+  showToast,
+}: {
+  adminUser: AdminUser;
+  onLogout: () => void;
+  onGoHome: () => void;
+  onOpenDoksli: (id: string) => void;
+  showToast: (msg: string) => void;
+}) {
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [dokslis, setDokslis] = useState<Doksli[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [previewDoksliFile, setPreviewDoksliFile] = useState<{ url: string; title: string } | null>(null);
+
+  const loadStatsAndDokslis = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [statsData, doksliPage] = await Promise.all([
+        adminGetStats(),
+        adminGetDokslis(page, search),
+      ]);
+      setStats(statsData);
+      setDokslis(doksliPage.data);
+      setTotalItems(doksliPage.total);
+      setTotalPages(doksliPage.last_page);
+    } catch (err: any) {
+      showToast(err.message || "Gagal memuat data admin.");
+    } finally {
+      setLoading(false);
+    }
+  }, [page, search, showToast]);
+
+  useEffect(() => {
+    loadStatsAndDokslis();
+  }, [loadStatsAndDokslis]);
+
+  const handleDeleteDoksli = async (id: string, name: string) => {
+    if (!confirm(`HAPUS PERMANEN Doksli "${name}"?\n\nSemua file dokumen di /mnt/storage dan seluruh komentarnya akan dihapus secara permanen!`)) {
+      return;
+    }
+
+    setDeletingId(id);
+    try {
+      await adminDeleteDoksli(id);
+      showToast(`Doksli "${name}" dan seluruh file fisiknya berhasil dihapus.`);
+      await loadStatsAndDokslis();
+    } catch (err: any) {
+      alert(err.message || "Gagal menghapus Doksli.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  return (
+    <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+      {/* Top Admin Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-2xl p-5 shadow-xs transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-xl">
+            🛡️
+          </div>
+          <div>
+            <h1 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              Panel Kontrol Admin DOKSLI
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Logged in as <span className="font-semibold text-blue-500 dark:text-blue-400">@{adminUser.username}</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setShowPasswordModal(true)}
+            className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl transition cursor-pointer flex items-center gap-1.5"
+          >
+            <span>🔑</span>
+            <span>Ganti Password</span>
+          </button>
+
+          <button
+            onClick={onGoHome}
+            className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-xs font-semibold rounded-xl transition cursor-pointer flex items-center gap-1"
+          >
+            <span>🌐</span>
+            <span>Website Publik</span>
+          </button>
+
+          <button
+            onClick={onLogout}
+            className="px-3 py-1.5 bg-red-50 dark:bg-red-950/50 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 text-xs font-semibold rounded-xl transition cursor-pointer flex items-center gap-1"
+          >
+            <span>🚪</span>
+            <span>Keluar</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      {stats && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-2xl p-4 shadow-2xs">
+            <p className="text-xs font-medium text-slate-400 dark:text-slate-500">Total Doksli</p>
+            <p className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
+              {stats.total_dokslis}
+            </p>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-2xl p-4 shadow-2xs">
+            <p className="text-xs font-medium text-slate-400 dark:text-slate-500">Total Berkas (/mnt/storage)</p>
+            <p className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+              {stats.total_files}
+            </p>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-2xl p-4 shadow-2xs">
+            <p className="text-xs font-medium text-slate-400 dark:text-slate-500">Ukuran Storage Terpakai</p>
+            <p className="text-xl sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">
+              {formatSize(stats.total_storage_bytes)}
+            </p>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-2xl p-4 shadow-2xs">
+            <p className="text-xs font-medium text-slate-400 dark:text-slate-500">Total Komentar & Reaksi</p>
+            <p className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">
+              {stats.total_comments}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Moderation List Section */}
+      <div className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider">
+              Daftar Moderasi Doksli ({totalItems})
+            </h2>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              Hapus konten yang tidak pantas, spam, atau melanggar aturan.
+            </p>
+          </div>
+
+          {/* Search Box */}
+          <div className="relative max-w-xs w-full">
+            <input
+              type="text"
+              placeholder="Cari Doksli..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <span className="absolute left-2.5 top-2 text-xs text-slate-400">🔍</span>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="py-12 text-center text-slate-400">
+            <span className="inline-block animate-spin text-2xl mb-2">🔄</span>
+            <p className="text-xs">Memuat data doksli...</p>
+          </div>
+        ) : dokslis.length === 0 ? (
+          <div className="py-12 text-center text-slate-400">
+            <p className="text-sm">Tidak ada Doksli yang ditemukan.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {dokslis.map((d) => (
+              <div
+                key={d.id}
+                className="bg-slate-50/70 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-slate-300 dark:hover:border-slate-700 transition"
+              >
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
+                      {d.name}
+                    </h3>
+                    <span className="text-[10px] px-2 py-0.5 bg-blue-100 dark:bg-blue-950 border border-blue-200 dark:border-blue-900/60 text-blue-700 dark:text-blue-300 rounded-full font-medium">
+                      {d.files_count ?? d.files?.length ?? 0} berkas
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 bg-amber-100 dark:bg-amber-950 border border-amber-200 dark:border-amber-900/60 text-amber-700 dark:text-amber-300 rounded-full font-medium">
+                      {d.comments_count ?? 0} komentar
+                    </span>
+                  </div>
+
+                  {d.description && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
+                      {d.description}
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-3 text-[11px] text-slate-400 dark:text-slate-500">
+                    <span>ID: {d.id.slice(0, 8)}...</span>
+                    <span>•</span>
+                    <span>Diupload {formatDateTime(d.created_at)}</span>
+                    <span>•</span>
+                    <span>👁️ {d.view_count} views</span>
+                  </div>
+
+                  {/* Attached file tags */}
+                  {d.files && d.files.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {d.files.map((file) => (
+                        <button
+                          key={file.id}
+                          type="button"
+                          onClick={() => setPreviewDoksliFile({
+                            url: getFileViewUrl(file.id),
+                            title: file.original_name,
+                          })}
+                          className="px-2 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] text-slate-600 dark:text-slate-300 hover:text-blue-500 transition flex items-center gap-1 cursor-pointer"
+                          title="Klik untuk lihat file"
+                        >
+                          <span>{fileIcon(file.mime_type)}</span>
+                          <span className="truncate max-w-[120px]">{file.original_name}</span>
+                          <span className="text-slate-400">({formatSize(file.file_size)})</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 flex-shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-200 dark:border-slate-800">
+                  <button
+                    onClick={() => onOpenDoksli(d.id)}
+                    className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl transition cursor-pointer flex items-center gap-1"
+                  >
+                    <span>👁️ Buka</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDeleteDoksli(d.id, d.name)}
+                    disabled={deletingId === d.id}
+                    className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white text-xs font-semibold rounded-xl transition cursor-pointer flex items-center gap-1 shadow-xs"
+                  >
+                    {deletingId === d.id ? (
+                      <span className="animate-spin text-xs">⏳</span>
+                    ) : (
+                      <span>🗑️ Hapus Permanen</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 text-xs">
+            <span className="text-slate-400">
+              Halaman {page} dari {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <button
+                disabled={page <= 1}
+                onClick={() => setPage((prev) => prev - 1)}
+                className="px-3 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 disabled:opacity-40 cursor-pointer"
+              >
+                Sebelumnya
+              </button>
+              <button
+                disabled={page >= totalPages}
+                onClick={() => setPage((prev) => prev + 1)}
+                className="px-3 py-1 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 disabled:opacity-40 cursor-pointer"
+              >
+                Berikutnya
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {showPasswordModal && (
+        <ChangePasswordModal
+          onClose={() => setShowPasswordModal(false)}
+          onSuccess={() => {
+            setShowPasswordModal(false);
+            showToast("Password admin berhasil diubah!");
+          }}
+        />
+      )}
+
+      {previewDoksliFile && (
+        <MediaLightboxModal
+          title={previewDoksliFile.title}
+          url={previewDoksliFile.url}
+          onClose={() => setPreviewDoksliFile(null)}
+        />
+      )}
     </main>
   );
 }
@@ -1460,6 +2005,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [activeDoksli, setActiveDoksli] = useState<Doksli | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
@@ -1523,25 +2069,46 @@ export default function App() {
     }
   }, []);
 
+  // Check admin session if token exists
+  useEffect(() => {
+    if (getAdminToken()) {
+      adminCheckAuth()
+        .then((user) => setAdminUser(user))
+        .catch(() => setAdminUser(null));
+    }
+  }, []);
+
+  // Route listener
   useEffect(() => {
     if (typeof window !== "undefined") {
+      const path = window.location.pathname;
       const params = new URLSearchParams(window.location.search);
-      const sharedId = params.get("doksli") || params.get("id");
-      if (sharedId) {
-        handleOpen(sharedId, false);
+
+      if (path === "/admin" || params.get("admin") === "1") {
+        setPage("admin");
       } else {
-        loadData();
+        const sharedId = params.get("doksli") || params.get("id");
+        if (sharedId) {
+          handleOpen(sharedId, false);
+        } else {
+          loadData();
+        }
       }
 
       const handlePopState = () => {
+        const currentPath = window.location.pathname;
         const currentParams = new URLSearchParams(window.location.search);
-        const currentId = currentParams.get("doksli") || currentParams.get("id");
-        if (currentId) {
-          handleOpen(currentId, false);
+        if (currentPath === "/admin" || currentParams.get("admin") === "1") {
+          setPage("admin");
         } else {
-          setActiveDoksli(null);
-          setPage("home");
-          loadData();
+          const currentId = currentParams.get("doksli") || currentParams.get("id");
+          if (currentId) {
+            handleOpen(currentId, false);
+          } else {
+            setActiveDoksli(null);
+            setPage("home");
+            loadData();
+          }
         }
       };
 
@@ -1557,9 +2124,25 @@ export default function App() {
       const url = new URL(window.location.href);
       url.searchParams.delete("doksli");
       url.searchParams.delete("id");
-      window.history.pushState({}, "", url.pathname || "/");
+      url.searchParams.delete("admin");
+      window.history.pushState({}, "", "/");
     }
     loadData();
+  };
+
+  const handleGoAdmin = () => {
+    setActiveDoksli(null);
+    setPage("admin");
+    if (typeof window !== "undefined") {
+      window.history.pushState({ page: "admin" }, "", "/admin");
+    }
+  };
+
+  const handleAdminLogout = async () => {
+    await adminLogout();
+    setAdminUser(null);
+    setToastMessage("Logout admin berhasil.");
+    handleGoHome();
   };
 
   const handleCreate = async (name: string, description: string, files: File[]) => {
@@ -1615,12 +2198,15 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#f0f7ff] dark:bg-[#0b0f17] text-slate-800 dark:text-slate-100 transition-colors duration-200">
-      <Header
-        onHome={handleGoHome}
-        onCreate={() => setPage("create")}
-        darkMode={darkMode}
-        onToggleTheme={toggleTheme}
-      />
+      {page !== "admin" && (
+        <Header
+          onHome={handleGoHome}
+          onCreate={() => setPage("create")}
+          onAdmin={handleGoAdmin}
+          darkMode={darkMode}
+          onToggleTheme={toggleTheme}
+        />
+      )}
 
       {page === "home" && (
         <HomePage
@@ -1648,6 +2234,26 @@ export default function App() {
           onAddComment={handleAddComment}
           onShareDoksli={handleShareDoksli}
         />
+      )}
+
+      {page === "admin" && (
+        adminUser ? (
+          <AdminDashboardView
+            adminUser={adminUser}
+            onLogout={handleAdminLogout}
+            onGoHome={handleGoHome}
+            onOpenDoksli={handleOpen}
+            showToast={(msg) => setToastMessage(msg)}
+          />
+        ) : (
+          <AdminLoginView
+            onLoginSuccess={(user) => {
+              setAdminUser(user);
+              setToastMessage(`Selamat datang, ${user.username}!`);
+            }}
+            onGoHome={handleGoHome}
+          />
+        )
       )}
 
       {toastMessage && (

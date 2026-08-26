@@ -28,7 +28,52 @@ export type Doksli = {
   comments_count?: number;
 };
 
+export type AdminStats = {
+  total_dokslis: number;
+  total_files: number;
+  total_comments: number;
+  total_storage_bytes: number;
+  total_views: number;
+};
+
+export type AdminUser = {
+  id: string;
+  username: string;
+  last_login_at?: string | null;
+  last_login_ip?: string | null;
+};
+
 const API_BASE = '/api';
+const ADMIN_TOKEN_KEY = 'doksli_admin_session_token';
+
+export function getAdminToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(ADMIN_TOKEN_KEY);
+}
+
+export function setAdminToken(token: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(ADMIN_TOKEN_KEY, token);
+}
+
+export function clearAdminToken(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(ADMIN_TOKEN_KEY);
+}
+
+function getAdminAuthHeaders(): Record<string, string> {
+  const token = getAdminToken();
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+    headers['X-Admin-Token'] = token;
+  }
+  return headers;
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
 
 export async function fetchDokslis(): Promise<Doksli[]> {
   const res = await fetch(`${API_BASE}/dokslis`);
@@ -111,4 +156,122 @@ export async function addDoksliComment(
 
 export function getFileViewUrl(fileId: string): string {
   return `${API_BASE}/files/${fileId}/view`;
+}
+
+// ─── Admin API ────────────────────────────────────────────────────────────────
+
+export async function adminLogin(username: string, password: string): Promise<{ username: string; token: string }> {
+  const res = await fetch(`${API_BASE}/admin/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ username, password }),
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.message || 'Login gagal. Periksa username dan password.');
+  }
+
+  setAdminToken(json.data.token);
+  return json.data;
+}
+
+export async function adminCheckAuth(): Promise<AdminUser> {
+  const res = await fetch(`${API_BASE}/admin/me`, {
+    headers: getAdminAuthHeaders(),
+  });
+
+  if (!res.ok) {
+    clearAdminToken();
+    throw new Error('Sesi admin tidak valid');
+  }
+
+  const json = await res.json();
+  return json.data;
+}
+
+export async function adminGetStats(): Promise<AdminStats> {
+  const res = await fetch(`${API_BASE}/admin/stats`, {
+    headers: getAdminAuthHeaders(),
+  });
+
+  if (!res.ok) {
+    throw new Error('Gagal memuat statistik admin');
+  }
+
+  const json = await res.json();
+  return json.data;
+}
+
+export async function adminGetDokslis(page: number = 1, search: string = ''): Promise<{ data: Doksli[]; current_page: number; last_page: number; total: number }> {
+  const params = new URLSearchParams({ page: String(page) });
+  if (search.trim()) params.set('search', search.trim());
+
+  const res = await fetch(`${API_BASE}/admin/dokslis?${params.toString()}`, {
+    headers: getAdminAuthHeaders(),
+  });
+
+  if (!res.ok) {
+    throw new Error('Gagal memuat daftar doksli admin');
+  }
+
+  const json = await res.json();
+  return json.data;
+}
+
+export async function adminDeleteDoksli(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/admin/dokslis/${id}`, {
+    method: 'DELETE',
+    headers: getAdminAuthHeaders(),
+  });
+
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || 'Gagal menghapus doksli');
+  }
+}
+
+export async function adminDeleteComment(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/admin/comments/${id}`, {
+    method: 'DELETE',
+    headers: getAdminAuthHeaders(),
+  });
+
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || 'Gagal menghapus komentar');
+  }
+}
+
+export async function adminChangePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/admin/change-password`, {
+    method: 'POST',
+    headers: {
+      ...getAdminAuthHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.message || 'Gagal mengganti password');
+  }
+}
+
+export async function adminLogout(): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/admin/logout`, {
+      method: 'POST',
+      headers: getAdminAuthHeaders(),
+    });
+  } finally {
+    clearAdminToken();
+  }
 }

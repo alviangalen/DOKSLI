@@ -25,6 +25,22 @@ if [ -n "$DB_PASSWORD" ]; then
     sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=${DB_PASSWORD}|" .env 2>/dev/null || true
 fi
 
+# Sinkronisasi konfigurasi Admin Credentials
+if [ -n "$ADMIN_USERNAME" ]; then
+    if grep -q "^ADMIN_USERNAME=" .env; then
+        sed -i "s|^ADMIN_USERNAME=.*|ADMIN_USERNAME=${ADMIN_USERNAME}|" .env 2>/dev/null || true
+    else
+        echo "ADMIN_USERNAME=${ADMIN_USERNAME}" >> .env
+    fi
+fi
+if [ -n "$ADMIN_PASSWORD" ]; then
+    if grep -q "^ADMIN_PASSWORD=" .env; then
+        sed -i "s|^ADMIN_PASSWORD=.*|ADMIN_PASSWORD=${ADMIN_PASSWORD}|" .env 2>/dev/null || true
+    else
+        echo "ADMIN_PASSWORD=${ADMIN_PASSWORD}" >> .env
+    fi
+fi
+
 echo "==> Menunggu database PostgreSQL (${DB_HOST:-postgres}:${DB_PORT:-5432}) siap..."
 until pg_isready -h "${DB_HOST:-postgres}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME:-doksli_user}" >/dev/null 2>&1; do
     sleep 1
