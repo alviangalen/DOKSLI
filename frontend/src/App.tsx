@@ -307,15 +307,6 @@ function Header({
         </button>
 
         <div className="flex items-center gap-2">
-          {onAdmin && (
-            <button
-              onClick={onAdmin}
-              className="p-2 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer text-xs"
-              title="Akses Panel Admin (/admin)"
-            >
-              🛡️
-            </button>
-          )}
 
           <button
             onClick={onToggleTheme}
