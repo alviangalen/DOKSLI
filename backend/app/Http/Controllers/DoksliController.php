@@ -112,7 +112,7 @@ class DoksliController extends Controller
         $validated = $request->validate([
             'text' => 'nullable|string|max:2000',
             'parent_id' => 'nullable|uuid|exists:comments,id',
-            'image' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp|max:10240',
+            'image' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp,avif,bmp,svg,heic,heif,ico|max:20480',
             'image_url' => 'nullable|url|max:2048',
         ]);
 
