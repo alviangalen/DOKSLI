@@ -38,11 +38,18 @@ RUN echo "upload_max_filesize = 100M" > /usr/local/etc/php/conf.d/uploads.ini \
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Copy composer files first for caching
+# Configure Composer environment for resilient downloads
+ENV COMPOSER_ALLOW_SUPERUSER=1 \
+    COMPOSER_NO_INTERACTION=1 \
+    COMPOSER_PROCESS_TIMEOUT=600 \
+    COMPOSER_MAX_PARALLEL_HTTP=4
+
+# Copy composer files first for layer caching
 COPY composer.json composer.lock ./
 
-# Install dependencies (production / no-dev)
-RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
+# Install dependencies (production / no-dev) with auto-retry on transient GitHub network drops
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist || \
+    (echo "==> Retrying composer install due to network drop..." && sleep 3 && composer install --no-dev --no-scripts --no-autoloader --prefer-dist)
 
 # Copy application source code
 COPY . .
