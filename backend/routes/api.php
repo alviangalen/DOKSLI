@@ -5,8 +5,8 @@ use App\Http\Controllers\DoksliController;
 use App\Http\Middleware\AdminAuthMiddleware;
 use Illuminate\Support\Facades\Route;
 
-// ─── Public API Endpoints (with rate limiting) ────────────────────────────────
-Route::middleware('throttle:60,1')->group(function () {
+// ─── Public API Endpoints (300 requests/minute per real client IP) ────────────
+Route::middleware('throttle:300,1')->group(function () {
     Route::get('/dokslis', [DoksliController::class, 'index']);
     Route::post('/dokslis', [DoksliController::class, 'store']);
     Route::get('/dokslis/{id}', [DoksliController::class, 'show']);

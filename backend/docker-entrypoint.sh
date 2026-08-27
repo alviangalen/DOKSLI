@@ -47,15 +47,17 @@ until pg_isready -h "${DB_HOST:-postgres}" -p "${DB_PORT:-5432}" -U "${DB_USERNA
 done
 echo "==> PostgreSQL siap terhubung!"
 
-# Pastikan folder storage dan cache memiliki izin akses penuh
+# Pastikan folder storage dan cache memiliki izin akses penuh untuk www-data
 mkdir -p "${DOKSLI_STORAGE_PATH:-/mnt/storage}/uploads" \
          "${DOKSLI_STORAGE_PATH:-/mnt/storage}/comment_images" \
          storage/framework/cache/data \
          storage/framework/sessions \
          storage/framework/views \
          storage/logs \
-         bootstrap/cache
-chmod -R 777 "${DOKSLI_STORAGE_PATH:-/mnt/storage}" storage bootstrap/cache 2>/dev/null || true
+         bootstrap/cache \
+         /var/log/supervisor
+chown -R www-data:www-data storage bootstrap/cache "${DOKSLI_STORAGE_PATH:-/mnt/storage}" 2>/dev/null || true
+chmod -R 777 storage bootstrap/cache "${DOKSLI_STORAGE_PATH:-/mnt/storage}" 2>/dev/null || true
 
 # Generate APP_KEY jika belum ada
 if [ -z "$APP_KEY" ]; then
@@ -67,5 +69,11 @@ fi
 echo "==> Menjalankan migrasi database..."
 php artisan migrate --force
 
-echo "==> DOKSLI Backend siap dijalankan!"
+# Optimasi cache Laravel untuk high traffic
+echo "==> Mengoptimalkan cache konfigurasi dan routing..."
+php artisan config:cache || true
+php artisan route:cache || true
+php artisan view:cache || true
+
+echo "==> DOKSLI Production High-Concurrency Backend siap dijalankan!"
 exec "$@"

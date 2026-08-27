@@ -1,10 +1,12 @@
-FROM php:8.4-cli-bookworm
+FROM php:8.4-fpm-bookworm
 
 # Set working directory
 WORKDIR /var/www/html
 
-# Install system runtime dependencies & PostgreSQL client
+# Install system runtime dependencies, Nginx, Supervisor, PostgreSQL client
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    nginx \
+    supervisor \
     postgresql-client \
     curl \
     git \
@@ -28,11 +30,17 @@ RUN install-php-extensions \
 # Copy Composer from official composer image
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Custom PHP settings for large file upload
+# Custom PHP settings for large file upload & memory
 RUN echo "upload_max_filesize = 100M" > /usr/local/etc/php/conf.d/uploads.ini \
     && echo "post_max_size = 100M" >> /usr/local/etc/php/conf.d/uploads.ini \
     && echo "memory_limit = 512M" >> /usr/local/etc/php/conf.d/uploads.ini \
     && echo "max_execution_time = 300" >> /usr/local/etc/php/conf.d/uploads.ini
+
+# Copy OPcache, PHP-FPM, Nginx, and Supervisor configurations
+COPY docker/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
+COPY docker/php-fpm-pool.conf /usr/local/etc/php-fpm.d/zz-docker.conf
+COPY docker/nginx-backend.conf /etc/nginx/sites-available/default
+COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
@@ -47,7 +55,7 @@ ENV COMPOSER_ALLOW_SUPERUSER=1 \
 # Copy composer files first for layer caching
 COPY composer.json composer.lock ./
 
-# Install dependencies (production / no-dev) with auto-retry on transient GitHub network drops
+# Install dependencies (production / no-dev) with auto-retry
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist || \
     (echo "==> Retrying composer install due to network drop..." && sleep 3 && composer install --no-dev --no-scripts --no-autoloader --prefer-dist)
 
@@ -57,7 +65,7 @@ COPY . .
 # Finish composer autoload optimization
 RUN composer dump-autoload --optimize --no-dev
 
-# Ensure storage directories exist and have proper permissions
+# Ensure storage and cache directories exist and have proper permissions
 RUN mkdir -p storage/framework/cache/data \
     storage/framework/sessions \
     storage/framework/views \
@@ -65,9 +73,11 @@ RUN mkdir -p storage/framework/cache/data \
     bootstrap/cache \
     /mnt/storage/uploads \
     /mnt/storage/comment_images \
-    && chmod -R 777 storage bootstrap/cache
+    /var/log/supervisor \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
 
 EXPOSE 8000
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
