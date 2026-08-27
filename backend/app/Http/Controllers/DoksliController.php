@@ -35,11 +35,11 @@ class DoksliController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:5000',
             'files' => 'nullable|array',
-            'files.*' => 'file|max:102400',
+            'files.*' => 'file|max:512000',
         ], [
             'name.required' => 'Nama Doksli wajib diisi.',
             'files.*.file' => 'File yang diupload tidak valid.',
-            'files.*.max' => 'Ukuran file tidak boleh melebihi 100MB.',
+            'files.*.max' => 'Ukuran file tidak boleh melebihi 500MB.',
         ]);
 
         $doksli = Doksli::create([
@@ -112,7 +112,7 @@ class DoksliController extends Controller
         $validated = $request->validate([
             'text' => 'nullable|string|max:2000',
             'parent_id' => 'nullable|uuid|exists:comments,id',
-            'image' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp,avif,bmp,svg,heic,heif,ico|max:20480',
+            'image' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp,avif,bmp,svg,heic,heif,ico|max:512000',
             'image_url' => 'nullable|url|max:2048',
         ]);
 

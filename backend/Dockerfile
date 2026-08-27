@@ -30,11 +30,12 @@ RUN install-php-extensions \
 # Copy Composer from official composer image
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Custom PHP settings for large file upload & memory
-RUN echo "upload_max_filesize = 100M" > /usr/local/etc/php/conf.d/uploads.ini \
-    && echo "post_max_size = 100M" >> /usr/local/etc/php/conf.d/uploads.ini \
-    && echo "memory_limit = 512M" >> /usr/local/etc/php/conf.d/uploads.ini \
-    && echo "max_execution_time = 300" >> /usr/local/etc/php/conf.d/uploads.ini
+# Custom PHP settings for large file upload up to 500MB & high memory
+RUN echo "upload_max_filesize = 500M" > /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "post_max_size = 500M" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "memory_limit = 1024M" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "max_execution_time = 600" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "max_input_time = 600" >> /usr/local/etc/php/conf.d/uploads.ini
 
 # Copy OPcache, PHP-FPM, Nginx, and Supervisor configurations
 COPY docker/opcache.ini /usr/local/etc/php/conf.d/opcache.ini

@@ -679,7 +679,7 @@ function CreatePage({
               {isDragging ? "Lepaskan file di sini!" : "Ketuk untuk memilih file"}
             </p>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-              Gambar, Video, Audio, PDF, Dokumen (Maks 100MB/file)
+              Gambar, Video, Audio, PDF, Dokumen (Maks 500MB/file)
             </p>
           </div>
 
